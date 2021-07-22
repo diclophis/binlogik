@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+$stdout.sync = true
+$stderr.sync = true
+
+$gem_dir = File.dirname(File.dirname(File.realpath(__FILE__)))
+lib = File.join($gem_dir, "lib")
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'mysql2_binlog_stream'
+
+Mysql2BinlogStream::Cli.main
