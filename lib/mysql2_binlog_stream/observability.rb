@@ -17,15 +17,18 @@ module Mysql2BinlogStream
 
       @all_contexts ||= {}
       @all_contexts[context] ||= [[], []] #[2, "epoch", context]
+
       @all_contexts[context][0] << now
       @all_contexts[context][1] << metric
 
-      if @all_contexts[context][0].length > (8192 * 16)
+      if @all_contexts[context][0].length > (8192 * 2)
         @all_contexts[context][0].shift(1)
         @all_contexts[context][1].shift(1)
       end
 
-      if global_time - @last_flush > 2.0
+      if global_time - @last_flush > 2.5
+        puts :flush
+
         @last_flush = Time.now.to_f
 
         uuid = @uuid

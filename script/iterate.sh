@@ -12,7 +12,7 @@ kubectl delete pod binlogik --wait || true
 kubectl apply -f kubernetes
 
 cleanup() {
-  echo -n please wait ...
+  echo -n " ... please wait ... "
   kubectl delete pod binlogik
   exit
 }

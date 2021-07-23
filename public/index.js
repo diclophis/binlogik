@@ -3,6 +3,7 @@
 
 var defaultPollTimeout = 2000;
 var pollTimeout = defaultPollTimeout;
+var charts = {}
 
 var handleErrors = function(response) {
   if (!response.ok) {
@@ -253,12 +254,9 @@ function wheelZoomPlugin(opts) {
         // wheel drag pan
         over.addEventListener("mousedown", e => {
           if (e.button == 1) {
-          //  plot.style.cursor = "move";
             e.preventDefault();
 
             let left0 = e.clientX;
-          //  let top0 = e.clientY;
-
             let scXMin0 = u.scales.x.min;
             let scXMax0 = u.scales.x.max;
 
@@ -268,8 +266,6 @@ function wheelZoomPlugin(opts) {
               e.preventDefault();
 
               let left1 = e.clientX;
-            //  let top1 = e.clientY;
-
               let dx = xUnitsPerPx * (left1 - left0);
 
               u.setScale('x', {
@@ -329,71 +325,104 @@ function wheelZoomPlugin(opts) {
 }
 
 
-/*
-let wait = document.getElementById("wait");
-wait.textContent = "Fetching data.json (2.07MB)....";
-fetch("../bench/data.json").then(r => r.json()).then(packed => {
-  wait.textContent = "Rendering...";
-  let data = prepData(packed);
-  setTimeout(() => makeChart(data), 0);
-});
-*/
+var makeStatChart = function(context) {
+  if (charts[context]) {
+    return charts[context];
+  }
 
-/*
-setInterval(function() {
-  start1 += 10;
-  let data1 = sliceData(start1, start1 + len1);
-  uplot1.setData(data1);
-}, interval);
-*/
-
-//let data = [7, "epoch", "idl", "recv", "send", "writ", "used", "free", 26107560, 99.46, 0, 0, 0.63, 614.52, 3767.67];
-
-var counterChart = null;
-
-function makeChart() {
   let opts = {
-    title: "Wheel Zoom & Drag",
-    width: 600,
-    height: 400,
+    title: context,
+    width: 1024,
+    height: 256,
     plugins: [
-      wheelZoomPlugin({factor: 0.75})
+      wheelZoomPlugin({factor: 0.75}),
     ],
     scales: {
       x: {
-        auto: true,
+        time: true,
       },
-      'counter': {
-        auto: true,
-      }
     },
     series: [
-      {},
       {
-        label: "Counter",
-        stroke: "red",
+        label: "foo",
+      },
+      {
+        label: context,
+        stroke: 'red'
       },
     ]
   };
 
-/*
-  const data = [
-    [ 1, 2, 3, 4, 5, 6, 7],
-    [40,43,60,65,71,73,80],
-    [18,24,37,55,55,60,63],
-  ];
-  */
+  let newChart = new uPlot(opts, [], document.body);
+  charts[context] = newChart;
+  return newChart;
+};
 
-  counterChart = new uPlot(opts, [], document.body);
-}
 
-makeChart();
+var makeChart = function(context) {
+  if (charts[context]) {
+    return charts[context];
+  }
+
+  let opts = {
+    title: context,
+    width: 1024,
+    height: 256,
+    plugins: [
+      wheelZoomPlugin({factor: 0.75}),
+    ],
+    scales: {
+      x: {
+        time: true,
+      },
+    },
+    series: [
+      {
+        label: "time",
+      },
+      {
+        label: context,
+        stroke: 'red'
+      },
+    ]
+  };
+
+  let newChart = new uPlot(opts, [], document.body);
+  charts[context] = newChart;
+  return newChart;
+};
+
+
+var makeBarChart = function(context) {
+  if (charts[context]) {
+    return charts[context];
+  }
+
+  let opts = {
+    title: context,
+    width: 1024,
+    height: 256,
+    plugins: [
+      barChartPlugin()
+    ],
+    series: [
+      {
+      },
+      {
+        label: context,
+        stroke: 'rgba(255,165,0,1)',
+        fill: 'rgba(255,165,0,0.5)'
+      },
+    ]
+  };
+
+  let newChart = new uPlot(opts, [], document.body);
+  charts[context] = newChart;
+  return newChart;
+};
+
 
 var refreshIndex = function() {
-  //allPoints.splice(0, allPoints.length);
-  //keepTimeout();
-  //return;
-
   var req = new Request('http://localhost:9292/', {
     method: 'GET'
   });
@@ -405,62 +434,96 @@ var refreshIndex = function() {
     return response.json()
   })
   .then(tsdbContexts => {
-    let globalCounterTsdb = tsdbContexts["global.counter"];
+    let contexts = Object.keys(tsdbContexts);
 
-    counterChart.setData(globalCounterTsdb);
+    contexts.forEach(context => {
+      let data = tsdbContexts[context];
 
-    //var globalTime = Date.now();
-
-    //var frameTime = globalTime - lastTime;
-
-    //elapsedTime += frameTime;
-    //lastTime = globalTime;
-
-    //let timeShift = (Date.now() - pointZero);
-    //let keepUpShift = ((frameTime / 1000.0) * (1.0 / globalScale)); // + (frameTime * 0.1));
-
-    //graphDatum[0] += keepUpShift * 1.0;
-
-    //if (!halted) {
-    //  //allPoints = [];
-    //  //allPoints.splice(0, allPoints.length);
-
-    //  //var newPointR = [];
-    //  //newPointR[0] = (timeShift / 1000.0) * 100.0; //((Math.random() * 100.0) - 50.0) + (timeShift);
-    //  ////newPointR[0] = (Math.sin(globalTime * 0.033) * 100.0); //((Math.random() * 100.0) - 50.0) + (timeShift);
-    //  ////newPointR[1] = (Math.random() * 300.0) - 150.0;
-    //  //newPointR[1] = (Math.sin(globalTime * 10.0) * 100.0);
-    //  //allPoints.push(newPointR);
-
-    //  //globalCounterTsdb.forEach(foop => {
-
-    //    //let foop = globalCounterTsdb[globalCounterTsdb.length - 1];
-
-    //    //let timeStamp = foop[0] * 1000.0;
-    //    //let metric = foop[1];
-
-    //    //var newPoint = [];
-    //    //newPoint[0] = ((globalTime - timeStamp) / 1000.0) * 1.0;
-    //    //newPoint[1] = (metric * 0.0000001);
-    //    //allPoints.push(newPoint);
-    //    //console.log(globalTime, newPoint[0], newPoint[1]);
-
-    //    //var newPointR = [];
-    //    //newPointR[0] = (timeShift / 1000.0); //((Math.random() * 100.0) - 50.0) + (timeShift);
-    //    ////newPointR[0] = (Math.sin(globalTime * 0.033) * 100.0); //((Math.random() * 100.0) - 50.0) + (timeShift);
-    //    ////newPointR[1] = (Math.random() * 300.0) - 150.0;
-    //    ////newPointR[1] = (Math.sin(globalTime * 0.1) * metric) * 0.00001;
-    //    //newPointR[1] = 100.0; //metric * 0.00001;
-    //    //allPoints.push(newPointR);
-    //  //});
-    //}
-
-    //plotWindow();
-    //elapsedTime = 0.0;
+      if (context.includes("matrix")) {
+        let chart = makeBarChart(context);
+        chart.setData(data);
+      } else if (context.includes("counter")) {
+        let chart = makeChart(context);
+        chart.setData(data);
+      } else if (context.includes("lag")) {
+        let chart = makeStatChart(context);
+        chart.setData(data);
+      }
+    });
 
     keepTimeout();
   });
 };
 
-refreshIndex();
 
+function barChartPlugin({ xLabels=[], gap=0.05 }={}) {
+  // We want X Axis labels to be center aligned to it's barchart group.
+  // To achieve this, we increase the visible range then draw each bar 50% to the left.
+  const offset = 1;
+
+  function getRangeX (u, dataMin, dataMax) {
+
+    const absMin = u.data[0][0];
+    const absMax = u.data[0][u.data[0].length-1];
+
+    const min = Math.max(dataMin, absMin) - offset;
+    const max = Math.min(dataMax, absMax) + offset;
+
+    return [min, max];
+  }
+
+  function drawPath(u, sidx, i0, i1) {
+    const s      = u.series[sidx];
+    const xdata  = u.data[0];
+    const ydata  = u.data[sidx];
+    const scaleX = 'x';
+    const scaleY = s.scale;
+    const yseriesCount = u.data.length-1;
+    const yseriesIdx = (sidx-1);
+    const stroke = new Path2D();
+    const barWidth = (1 - gap) / yseriesCount;
+
+    for (let i = i0; i <= i1; i++) {
+      const xStartPos = xdata[i] + (yseriesIdx * barWidth) + (gap / 2) - (offset / 2);
+      const xEndPos = xStartPos + barWidth;
+      const x0 = u.valToPos(xStartPos, scaleX, true);
+      const x1 = u.valToPos(xEndPos, scaleX, true);
+      const y0 = u.valToPos(ydata[i], scaleY, true);
+      const y1 = u.valToPos(0, scaleY, true);;
+      const width = x1 - x0;
+      const height = y1 - y0;
+
+      stroke.rect(x0, y0, width, height);
+    }
+
+    const fill  = new Path2D(stroke);
+
+    return {stroke, fill}
+  }
+
+  return {
+    opts: (u, opts) => {
+      Object.assign(opts, {
+        cursor: opts.cursor || {},
+        scales: opts.scales || {},
+        axes  : opts.axes   || []
+      })
+
+      opts.series.forEach(series => {
+        series.paths = drawPath;
+      });
+
+      Object.assign(opts.cursor, {
+        points: false,
+      });
+
+      opts.scales.x = Object.assign(opts.scales.x || {}, {
+        time: false,
+        range: getRangeX,
+      });
+    }
+  }
+}
+
+
+refreshIndex();
