@@ -285,6 +285,7 @@ module Mysql2BinlogStream
           parser.read_uint_bitmap_by_size_and_name(4, QUERY_EVENT_FLAGS2)
         when :sql_mode
           parser.read_uint64
+          #parser.read_uint8
         when :catalog_deprecated
           parser.read_lpstringz
         when :auto_increment
@@ -308,25 +309,34 @@ module Mysql2BinlogStream
           parser.read_uint16
         when :table_map_for_update
           parser.read_uint64
+        when :master_data_written
+          parser.read_uint32
+        when :invoker
+          parser.read_lpstring
+          parser.read_lpstring
         when :updated_db_names
           _query_event_status_updated_db_names
-        when :commit_ts
-          parser.read_uint64
         when :microseconds
           parser.read_uint24
+        when :commit_ts
+        when :commit_ts2
+        when :explicit_defaults_for_timestamp
         else
           #TODO: check status code 11 ????
           #NOTE: ????
-          #raise "Unknown status type #{status_type_id}"
+          raise "Unknown status type #{status_type_id}"
         end
       end
 
       # We may have read too much due to an invalid string read especially.
       # Raise a more specific exception here instead of the generic
       # OverReadException from the entire event.
-      if reader.position > end_position
-        raise OverReadException.new("Read past end of Query event status field")
-      end
+
+      #TODO?????
+      #TODO: FULL CODE AUDIT
+      #if reader.position > end_position
+      #  raise OverReadException.new("Read past end of Query event status field")
+      #end
 
       status
     end
