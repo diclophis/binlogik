@@ -15,7 +15,7 @@ spec:
     stdin: false
     stdinOnce: false
     tty: false
-    image: mysql2-binlog-stream:latest
+    image: binlogik:latest
     imagePullPolicy: IfNotPresent
     name: binlogik
     resources: {}
@@ -32,7 +32,7 @@ spec:
     stdin: false
     stdinOnce: false
     tty: false
-    image: mysql2-binlog-stream:latest
+    image: binlogik:latest
     imagePullPolicy: IfNotPresent
     ports:
     - containerPort: 9292

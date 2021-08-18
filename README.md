@@ -1,18 +1,10 @@
 # binlogik
 
-   mysql2 ruby connection
+binlogik is a ruby-based mysql binlog utility.
 
-      SHOW BINARY LOGS
+its default mode emits mysql binlog query and row events to stdout, and runs as a kubernetes pod, detecting `MYSQL_SERVICE` from the `ENV` via `superconfig2`
 
-        Fetch X log file at at time to disk
-
-
-      User BinlogReader native pure ruby libs to extract to structure
-
-      emit as json or csv or other lib based subcribe event Do loop
-
-      Better time based recovery mechanism
-
+# related work
 
 https://github.com/y310/kodama
 

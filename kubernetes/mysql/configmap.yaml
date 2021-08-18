@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  mysql-custom.cnf: |-
+    [mysqld]
+    server_id=1
+    binlog_format=ROW
+    binlog_rows_query_log_events=true
+    max_binlog_size=4096
+    log-bin=/var/lib/mysql/mysql
+  grants.sql: |-
+    GRANT REPLICATION CLIENT ON *.* TO 'binlogik'@'%';
+    GRANT REPLICATION SLAVE ON *.* TO 'binlogik'@'%';
+    GRANT SELECT ON *.* TO 'binlogik'@'%';

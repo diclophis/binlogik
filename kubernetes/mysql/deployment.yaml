@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      hostNetwork: true
+      initContainers:
+      - name: "remove-lost-found"
+        image: "busybox:1.33.1"
+        imagePullPolicy: "IfNotPresent"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        command:  ["rm", "-fr", "/var/lib/mysql/lost+found"]
+      containers:
+      - name: mysql
+        image: "mysql:5.7.33"
+        imagePullPolicy: "IfNotPresent"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql
+              key: mysql-root-password
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql
+              key: mysql-password
+        - name: MYSQL_USER
+          value: "binlogik"
+        - name: MYSQL_DATABASE
+          value: "test"
+        ports:
+        - name: mysql
+          containerPort: 3306
+          hostPort: 3306
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
+          initialDelaySeconds: 15
+          periodSeconds: 7
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
+          initialDelaySeconds: 3
+          periodSeconds: 9
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 5
+        volumeMounts:
+        - name: config
+          mountPath: /etc/mysql/conf.d/mysql-custom.cnf
+          subPath: mysql-custom.cnf
+        - name: config
+          mountPath: /etc/mysql/initial-grants.sql
+          subPath: grants.sql
+      volumes:
+      - name: config
+        configMap:
+          name: mysql-config
