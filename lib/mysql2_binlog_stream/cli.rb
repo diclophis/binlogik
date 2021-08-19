@@ -33,7 +33,7 @@ module Mysql2BinlogStream
       mysql_client = Mysql2::Client.new(database_config)
 
       loop do
-        mysql_client.query('/* {"foo":"bar"} */ INSERT INTO test.test VALUES()')
+        mysql_client.query('/*XAX {"foo":"bar"} XAX*/ INSERT INTO test.test VALUES()')
         #sleep 0.1
       end
     end
@@ -155,6 +155,8 @@ module Mysql2BinlogStream
 
           tmp_bin_log = "tmp/binlogs/#{log_name}"
 
+          stream = Mysql2BinlogStream::Stream.new
+
           reader = Mysql2BinlogStream::BinlogReader.new(tmp_bin_log)
           reader.seek(binlog_files_positions[log_name])
 
@@ -162,6 +164,10 @@ module Mysql2BinlogStream
 
           binlog.checksum = :crc32 #TODO: detect crc???
           binlog.ignore_rotate = true #TODO: rotate I think is super-critical!!!
+
+          #:write_rows_event_v2, :update_rows_event_v2
+          #:rows_query_log_event
+          binlog.filter_event_types = [:rows_query_log_event]
 
           start_time = Time.now
 
@@ -181,7 +187,9 @@ module Mysql2BinlogStream
                 when :rows_query_log_event
                   event2 = event[:event]
                   if query = event2[:query]
-                    puts query
+                    if xax_json = stream.strstr_method(query)
+                      puts JSON.load(xax_json).inspect
+                    end
                   end
                 when :write_rows_event_v2, :update_rows_event_v2
                   slugified_table_name = [event[:event][:table][:db], event[:event][:table][:table]].join("_").downcase
@@ -194,7 +202,7 @@ module Mysql2BinlogStream
                         row_images.each { |row_image|
                           before = row_image[:before]
                           after = row_image[:after]
-                          puts [i+=1, rows_changed, slugified_table_name, (before ? before[:image] : nil), (after ? after[:image] : nil)].inspect
+                          #TODO: puts [i+=1, rows_changed, slugified_table_name, (before ? before[:image] : nil), (after ? after[:image] : nil)].inspect
                         }
                       end
                     end
