@@ -34,7 +34,7 @@ module Mysql2BinlogStream
 
       loop do
         mysql_client.query('/* {"foo":"bar"} */ INSERT INTO test.test VALUES()')
-        sleep 0.1
+        #sleep 0.1
       end
     end
 
@@ -68,12 +68,14 @@ module Mysql2BinlogStream
       system("mkdir", "-p", "tmp/metrics")
 
       while true
-        puts :looping
+        #puts :looping
 
         binary_logs = mysql_client.query("SHOW BINARY LOGS").to_a
 
-        #log_name = file_size = nil
+        #puts binary_logs.inspect
+        #exit 42
 
+        #log_name = file_size = nil
         ##TODO: build out diskspace safety check mechanism
         #(binary_logs[0..-2]).each { |blr|
         #  log_name = blr["Log_name"]
@@ -89,6 +91,10 @@ module Mysql2BinlogStream
         #  puts [:relooping, :still_waiting]
         #  next
         #end
+
+        binary_logs.reject! { |blr|
+          blr["Log_name"].nil? || blr["File_size"].nil?
+        }
 
         binary_logs.each { |blr|
           log_name = blr["Log_name"]
@@ -109,7 +115,8 @@ module Mysql2BinlogStream
           log_name = blr["Log_name"]
           file_size = blr["File_size"]
 
-          if file_size < 128 || binlog_files_positions[log_name] == file_size
+          if binlog_files_positions[log_name] == file_size
+            #puts [:skipping, log_name].inspect
             next
           end
 
@@ -157,8 +164,13 @@ module Mysql2BinlogStream
           binlog.ignore_rotate = true #TODO: rotate I think is super-critical!!!
 
           start_time = Time.now
+
+          #puts [:CHEESE, log_name, file_size, binlog_files_positions[log_name], log_name].inspect
+
           binlog.each_event { |event|
-            last_known_position_for_binlog = binlog_files_positions[event[:filename]]
+            #puts [:wtf, binlog_files_positions, log_name].inspect
+
+            last_known_position_for_binlog = binlog_files_positions[log_name]
 
             if event[:position] > last_known_position_for_binlog
               global_counter += 1 
@@ -167,17 +179,17 @@ module Mysql2BinlogStream
               header_timestamp = event[:header][:timestamp]
               case event[:type]
                 when :rows_query_log_event
-                  event = event[:event]
-                  if query = event[:query]
+                  event2 = event[:event]
+                  if query = event2[:query]
                     puts query
                   end
                 when :write_rows_event_v2, :update_rows_event_v2
                   slugified_table_name = [event[:event][:table][:db], event[:event][:table][:table]].join("_").downcase
                   rows_changed = event[:event][:row_image].length
   
-                  if event = event[:event]
-                    if table = event[:table]
-                      if row_images = event[:row_image]
+                  if event2 = event[:event]
+                    if table = event2[:table]
+                      if row_images = event2[:row_image]
                         i = 0
                         row_images.each { |row_image|
                           before = row_image[:before]
@@ -191,12 +203,15 @@ module Mysql2BinlogStream
                 #TODO
               end
 
-              binlog_files_positions[event[:filename]] = event[:position]
+              #puts event.inspect
+              #puts [:assign1, event[:position]].inspect
+
+              binlog_files_positions[log_name] = event[:position]
 
               if event[:type] == :rotate_event
                 #:event_type=>:rotate_event, :server_id=>1, :event_length=>43, :next_position=>4422
-                puts [:WTF, event[:header]].inspect
-                binlog_files_positions[event[:filename]] = event[:header][:next_position]
+                #puts [:WTF_assign_two, event[:header], event[:header][:next_position]].inspect
+                binlog_files_positions[log_name] = event[:header][:next_position]
               end
 
               #if (rand < 0.01)
@@ -208,6 +223,9 @@ module Mysql2BinlogStream
               #puts [:skipping, event[:filename], event[:position]].inspect
             end
           }
+
+          #puts [:OK, binlog_files_positions, binlog_files_handled].inspect
+          sleep 0.1
         }
       end
     end
