@@ -33,8 +33,8 @@ module Mysql2BinlogStream
       mysql_client = Mysql2::Client.new(database_config)
 
       loop do
-        mysql_client.query('/*XAX {"foo":"bar"} XAX*/ INSERT INTO test.test VALUES()')
-        #sleep 0.1
+        mysql_client.query('/*XAX ' + JSON.dump({"foo" => Time.now.to_f}) + ' XAX*/ INSERT INTO test.test VALUES()')
+        sleep 1
       end
     end
 
