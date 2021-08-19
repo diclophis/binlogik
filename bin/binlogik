@@ -9,4 +9,4 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require 'mysql2_binlog_stream'
 
-Mysql2BinlogStream::Cli.main
+Mysql2BinlogStream::Cli.main(ARGV)

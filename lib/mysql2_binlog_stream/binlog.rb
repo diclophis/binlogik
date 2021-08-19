@@ -167,6 +167,7 @@ module Mysql2BinlogStream
           header[:payload_end] = header[:next_position]
         end
 
+#puts [:WTF, header[:event_type]].inspect
 
         if @filter_event_types
           unless @filter_event_types.include? header[:event_type]

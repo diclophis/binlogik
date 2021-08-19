@@ -278,8 +278,10 @@ module Mysql2BinlogStream
       status_length = parser.read_uint16
       end_position = reader.position + status_length
       while reader.position < end_position
+
         status_type_id = parser.read_uint8
         status_type = QUERY_EVENT_STATUS_TYPES[status_type_id]
+        #puts [status_type_id, status_type, reader.position, end_position].inspect
         status[status_type] = case status_type
         when :flags2
           parser.read_uint_bitmap_by_size_and_name(4, QUERY_EVENT_FLAGS2)
@@ -319,8 +321,10 @@ module Mysql2BinlogStream
         when :microseconds
           parser.read_uint24
         when :commit_ts
+          #parser.read_uint64
         when :commit_ts2
         when :explicit_defaults_for_timestamp
+          parser.read_uint8
         else
           #TODO: check status code 11 ????
           #NOTE: ????
@@ -334,9 +338,10 @@ module Mysql2BinlogStream
 
       #TODO?????
       #TODO: FULL CODE AUDIT
-      #if reader.position > end_position
-      #  raise OverReadException.new("Read past end of Query event status field")
-      #end
+      #puts [:last, reader.position, end_position].inspect
+      if reader.position > end_position
+        raise OverReadException.new("Read past end of Query event status field")
+      end
 
       status
     end
@@ -608,14 +613,14 @@ module Mysql2BinlogStream
         case header[:event_type]
         when :write_rows_event_v1, :write_rows_event_v2
           row_image[:after]  = _generic_rows_event_row_image(header, fields, columns_used[:after])
-        when :delete_rows_event_v1, :delete_rows_event_v1
+        when :delete_rows_event_v1, :delete_rows_event_v2
           row_image[:before] = _generic_rows_event_row_image(header, fields, columns_used[:before])
         when :update_rows_event_v1, :update_rows_event_v2
           row_image[:before] = _generic_rows_event_row_image(header, fields, columns_used[:before])
           row_image[:after]  = _generic_rows_event_row_image(header, fields, columns_used[:after])
           row_image[:diff] = diff_row_images(row_image[:before][:image], row_image[:after][:image])
         else
-          #puts "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111"
+          puts "#{header[:event_type]} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111"
           #TODO: error case??????? or warning debug log????
         end
         row_images << row_image
@@ -666,7 +671,9 @@ module Mysql2BinlogStream
       when :write_rows_event_v1, :write_rows_event_v2
         columns_used[:after]  = parser.read_bit_array(columns)
       when :delete_rows_event_v1, :delete_rows_event_v2
+        #puts [:GOT_HERE].inspect
         columns_used[:before] = parser.read_bit_array(columns)
+        #puts [:GOT_AFTER].inspect
       when :update_rows_event_v1, :update_rows_event_v2
         columns_used[:before] = parser.read_bit_array(columns)
         columns_used[:after]  = parser.read_bit_array(columns)

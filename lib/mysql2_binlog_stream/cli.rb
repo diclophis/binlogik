@@ -4,7 +4,41 @@
 
 module Mysql2BinlogStream
   class Cli
-    def self.main
+    def self.main(argv)
+      case argv[0]
+        when "--follow"
+          self.follow
+        when "--workload"
+          self.workload
+      else
+        raise "unknown action"
+      end
+    end
+
+    def self.workload
+      database_config = {
+         "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
+         "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
+         "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
+         "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
+         "encoding"=> "utf8mb4",
+         "collation"=> "utf8mb4_unicode_ci",
+         "strict" => true,
+         "reconnect" => true,
+         "pool" => 1,
+         "timeout" => 20000,
+         "checkout_timeout" => 20
+      }
+
+      mysql_client = Mysql2::Client.new(database_config)
+
+      loop do
+        mysql_client.query('/* {"foo":"bar"} */ INSERT INTO test.test VALUES()')
+        sleep 0.1
+      end
+    end
+
+    def self.follow
       global_counter = 0
       event_type_counter = {}
 
@@ -27,12 +61,15 @@ module Mysql2BinlogStream
       create_test_row = mysql_client.query('/* {"foo":"bar"} */ INSERT INTO test.test VALUES()')
 
       binlog_files_handled = {}
+      binlog_files_positions = {}
 
       #TODO: better TMPDIR usage, factory ?????
       system("mkdir", "-p", "tmp/binlogs")
       system("mkdir", "-p", "tmp/metrics")
 
       while true
+        puts :looping
+
         binary_logs = mysql_client.query("SHOW BINARY LOGS").to_a
 
         #log_name = file_size = nil
@@ -57,17 +94,29 @@ module Mysql2BinlogStream
           log_name = blr["Log_name"]
           _, binlog_index = log_name.split(".")
           file_size = blr["File_size"]
+
+          binlog_files_handled[log_name] = file_size
+          binlog_files_positions[log_name] ||= 4
+
           #TODO: chart metric
           #binlog_disk_size = File.stat(tmp_bin_log).size
           #Mysql2BinlogStream::Observability.emit_tsdb("matrix.binlog.disk_size", file_size.to_i, binlog_index.to_i)
           #puts [:read_over_bytes_serially_slowly].inspect
+          #puts [log_name, binlog_files_positions[log_name], file_size].inspect
         }
 
         binary_logs.each { |blr|
           log_name = blr["Log_name"]
           file_size = blr["File_size"]
 
+          if file_size < 128 || binlog_files_positions[log_name] == file_size
+            next
+          end
+
           _, binlog_index = log_name.split(".")
+
+#puts [log_name, binlog_files_positions.keys].inspect
+#puts [binlog_files_positions[log_name]].inspect
 
           cmd = [
             "/usr/bin/mysqlbinlog",
@@ -77,6 +126,8 @@ module Mysql2BinlogStream
             "--password=#{Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS}",
             "--connection-server-id", "1001",
             "--raw",
+            "--start-position",
+            binlog_files_positions[log_name].to_s,
             #"--to-last-log",
             #"--binlog-row-event-max-size", "512",
             "--set-charset", "utf8mb4",
@@ -91,93 +142,73 @@ module Mysql2BinlogStream
           unless finished_ok
             #TODO: better error handling
 
-            #puts [o, e, s].inspect
+            puts [o, e, s].inspect
             raise "error fetching binlog #{log_name}"
           end
-          #puts [:processing, log_name].inspect
 
           tmp_bin_log = "tmp/binlogs/#{log_name}"
 
           reader = Mysql2BinlogStream::BinlogReader.new(tmp_bin_log)
+          reader.seek(binlog_files_positions[log_name])
+
           binlog = Mysql2BinlogStream::Binlog.new(reader)
+
           binlog.checksum = :crc32 #TODO: detect crc???
           binlog.ignore_rotate = true #TODO: rotate I think is super-critical!!!
 
           start_time = Time.now
           binlog.each_event { |event|
-            global_counter += 1 
+            last_known_position_for_binlog = binlog_files_positions[event[:filename]]
 
-            event_type_counter[event[:type]] ||= 0
-            event_type_counter[event[:type]] += 1
-
-            header_timestamp = event[:header][:timestamp]
-
-            #puts event.keys.inspect
-            #puts event.inspect
-
-#[:type, :filename, :position, :header, :event]
-#{
-# :type=>:rows_query_log_event, :filename=>"mysql.000009", :position=>900, 
-# :header=>{:timestamp=>1629267273, :event_type=>:rows_query_log_event, :server_id=>1, :event_length=>74, :next_position=>974, :flags=>[:ignorable], :payload_length=>51, :payload_end=>970},
-# :event=>{:query=>"/* {\"foo\":\"bar\"} */ INSERT INTO test.test VALUES()"}
-#}
-#{
-# :type=>:table_map_event, :filename=>"mysql.000009", :position=>974, 
-# :header=>{:timestamp=>1629267273, :event_type=>:table_map_event, :server_id=>1, :event_length=>47, :next_position=>1021, :flags=>[], :payload_length=>24, :payload_end=>1017},
-# :event=>{:table_id=>108, :flags=>[:bit_len_exact], :map_entry=>{:db=>"test", :table=>"test", :columns=>[{:type=>:long, :nullable=>false, :metadata=>nil}]}}
-#}
-#{
-# :type=>:write_rows_event_v2, :filename=>"mysql.000009", :position=>1021,
-# :header=>{:timestamp=>1629267273, :event_type=>:write_rows_event_v2, :server_id=>1, :event_length=>40, :next_position=>1061, :flags=>[], :payload_length=>17, :payload_end=>1057},
-# :event=>{:table=>{:db=>"test", :table=>"test", :columns=>[{:type=>:long, :nullable=>false, :metadata=>nil}]}, :flags=>[:stmt_end], :row_image=>[{:after=>{:image=>[{0=>10}], :size=>5}}]}
-#}
-
-            case event[:type]
-              when :rows_query_log_event
-                event = event[:event]
-                if query = event[:query]
-                  puts query
-                end
-
-              when :write_rows_event_v2, :update_rows_event_v2
-                slugified_table_name = [event[:event][:table][:db], event[:event][:table][:table]].join("_").downcase
-                rows_changed = event[:event][:row_image].length
-
-                if event = event[:event]
-                  if table = event[:table]
-                    if row_images = event[:row_image]
-                      i = 0
-                      row_images.each { |row_image|
-                        before = row_image[:before]
-                        after = row_image[:after]
-
-                        puts [i+=1, rows_changed, slugified_table_name, (before ? before[:image] : nil), (after ? after[:image] : nil)].inspect
-                      }
-
-                      #{
-                      #  :table=>{:db=>"test", :table=>"test", :columns=>[{:type=>:long, :nullable=>false, :metadata=>nil}]}, :flags=>[:stmt_end], 
-                      #  :row_image=>[{:after=>{:image=>[{0=>10}], :size=>5}}]
-                      #}
-                      #Mysql2BinlogStream::Observability.emit_tsdb("stat.#{slugified_table_name}.rows_changed", rows_changed, header_timestamp.to_f)
+            if event[:position] > last_known_position_for_binlog
+              global_counter += 1 
+              event_type_counter[event[:type]] ||= 0
+              event_type_counter[event[:type]] += 1
+              header_timestamp = event[:header][:timestamp]
+              case event[:type]
+                when :rows_query_log_event
+                  event = event[:event]
+                  if query = event[:query]
+                    puts query
+                  end
+                when :write_rows_event_v2, :update_rows_event_v2
+                  slugified_table_name = [event[:event][:table][:db], event[:event][:table][:table]].join("_").downcase
+                  rows_changed = event[:event][:row_image].length
+  
+                  if event = event[:event]
+                    if table = event[:table]
+                      if row_images = event[:row_image]
+                        i = 0
+                        row_images.each { |row_image|
+                          before = row_image[:before]
+                          after = row_image[:after]
+                          puts [i+=1, rows_changed, slugified_table_name, (before ? before[:image] : nil), (after ? after[:image] : nil)].inspect
+                        }
+                      end
                     end
                   end
-                end
+              else
+                #TODO
+              end
 
+              binlog_files_positions[event[:filename]] = event[:position]
+
+              if event[:type] == :rotate_event
+                #:event_type=>:rotate_event, :server_id=>1, :event_length=>43, :next_position=>4422
+                puts [:WTF, event[:header]].inspect
+                binlog_files_positions[event[:filename]] = event[:header][:next_position]
+              end
+
+              #if (rand < 0.01)
+              #  Mysql2BinlogStream::Observability.emit_tsdb("stat.lag", (Time.now - Time.at(header_timestamp)))
+              #  Mysql2BinlogStream::Observability.emit_tsdb("counter.global", global_counter)
+              #  Mysql2BinlogStream::Observability.emit_tsdb("counter.#{event[:type]}", event_type_counter[event[:type]])
+              #end
             else
-              #TODO
-              #puts event.inspect
+              #puts [:skipping, event[:filename], event[:position]].inspect
             end
-
-            #if (rand < 0.01)
-            #  Mysql2BinlogStream::Observability.emit_tsdb("stat.lag", (Time.now - Time.at(header_timestamp)))
-            #  Mysql2BinlogStream::Observability.emit_tsdb("counter.global", global_counter)
-            #  Mysql2BinlogStream::Observability.emit_tsdb("counter.#{event[:type]}", event_type_counter[event[:type]])
-            #end
           }
         }
-
-        #puts [:looping].inspect
-        sleep 5
       end
     end
   end

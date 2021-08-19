@@ -12,6 +12,7 @@ data:
     max_binlog_size=4096
     log-bin=/var/lib/mysql/mysql
   grants.sql: |-
+    CREATE TABLE test.test (id INT AUTO_INCREMENT PRIMARY KEY NOT NULL);
     GRANT REPLICATION CLIENT ON *.* TO 'binlogik'@'%';
     GRANT REPLICATION SLAVE ON *.* TO 'binlogik'@'%';
     GRANT SELECT ON *.* TO 'binlogik'@'%';

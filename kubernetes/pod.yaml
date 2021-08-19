@@ -9,15 +9,36 @@ spec:
   hostNetwork: true
   containers:
   - args:
-    - bundle
-    - exec
-    - binlogik
+    - "bundle"
+    - "exec"
+    - "binlogik"
+    - "--follow"
     stdin: false
     stdinOnce: false
     tty: false
     image: binlogik:latest
     imagePullPolicy: IfNotPresent
-    name: binlogik
+    name: follow
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /home/app/tmp
+      name: tmpdir
+    resources:
+      limits:
+        memory: 5G
+  - args:
+    - "bundle"
+    - "exec"
+    - "binlogik"
+    - "--workload"
+    stdin: false
+    stdinOnce: false
+    tty: false
+    image: binlogik:latest
+    imagePullPolicy: IfNotPresent
+    name: workload
     resources: {}
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
