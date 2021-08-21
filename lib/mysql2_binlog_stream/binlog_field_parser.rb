@@ -92,12 +92,14 @@ module Mysql2BinlogStream
 
     # Read an unsigned 32-bit (4-byte) integer.
     def read_uint32
+      #TODO: unit test this
       #reader.read(4).unpack("V").first
       #reader.read(4).reverse.inject(0){|s,i| s*256 + i}
       #reader.read(4).unpack("N").first
       reader.read(4).unpack("L").first
     end
 
+    #TODO: ??? is this method reqd? valid?
     ## Read an unsigned 32-bit (4-byte) integer.
     #def read_int32
     #  reader.read(4).unpack("i").first
@@ -306,6 +308,7 @@ module Mysql2BinlogStream
         str << value.to_s
       end
 
+      #TODO: performance updates???
       str << "."
 
       (1..uncomp_fractional).each do
@@ -451,7 +454,6 @@ module Mysql2BinlogStream
     # Read a single field, provided the MySQL column type as a symbol. Not all
     # types are currently supported.
     def read_mysql_type(type, metadata=nil)
-      #puts ["GGGG this happens after kowing all bits, where is metadata for :long", type, metadata].inspect
       #TODO: chart metric
 
       case type

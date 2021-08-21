@@ -9,10 +9,7 @@ module Mysql2BinlogStream
     MAGIC_SIZE  = 4
     MAGIC_VALUE = 1852400382
 
-    attr_accessor :tail
-
     def initialize(filename)
-      @tail = false
       open_file(filename)
     end
 
@@ -31,6 +28,7 @@ module Mysql2BinlogStream
       verify_magic
     end
 
+    #TODO: is rotate required???
     #TODO: is rotate required to ensure consistent stream
     #def rotate(filename, position)
     #  retries = 10
@@ -71,7 +69,6 @@ module Mysql2BinlogStream
     end
 
     def end?
-      #return false if tail
       @binlog.eof?
     end
 
@@ -84,12 +81,6 @@ module Mysql2BinlogStream
     end
 
     def read(length)
-      #if tail
-      #  needed_position = position + length
-      #  while @binlog.stat.size < needed_position
-      #    sleep 0.02
-      #  end
-      #end
       return "" if length == 0
       data = @binlog.read(length)
       if !data

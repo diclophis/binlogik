@@ -4,7 +4,25 @@ binlogik is a ruby-based mysql binlog utility.
 
 its default mode emits mysql binlog query and row events to stdout, and runs as a kubernetes pod, detecting `MYSQL_SERVICE` from the `ENV` via `superconfig2`
 
-# related work
+# related work / research links
+
+https://dev.mysql.com/doc/internals/en/query-event.html
+
+https://dev.mysql.com/doc/internals/en/binlog-event.html
+
+https://dev.mysql.com/doc/internals/en/com-binlog-dump.html
+
+https://dev.mysql.com/doc/refman/5.7/en/purge-binary-logs.html
+
+https://dev.mysql.com/doc/dev/mysql-server/8.0.21/classQuery__log__event.html
+
+https://dev.mysql.com/doc/internals/en/xid-event.html
+
+https://www.rubydoc.info/gems/mysql_binlog/0.3.2/MysqlBinlog
+
+https://dev.mysql.com/doc/dev/mysql-server/latest/statement__events_8h_source.html
+
+https://dev.mysql.com/doc/refman/5.7/en/mysqlbinlog.html#option_mysqlbinlog_start-position
 
 https://github.com/y310/kodama
 

@@ -3,7 +3,7 @@
 module Mysql2BinlogStream
   class Observability
     # graphing lib requires each series be formatted like this
-    # TODO
+    # TODO: ????????
     # [COUNT, FIELDNAME1, FIELDNAMEX..., FIELD1, FIELDX...]
     # [7,"epoch","idl","recv","send","writ","used","free",26107560,99.46,0,0,0.63,614.52,3767.67
 

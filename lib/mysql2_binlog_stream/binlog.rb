@@ -167,7 +167,7 @@ module Mysql2BinlogStream
           header[:payload_end] = header[:next_position]
         end
 
-#puts [:WTF, header[:event_type]].inspect
+        #TODO: debug breakpoint unit test
 
         if @filter_event_types
           unless @filter_event_types.include? header[:event_type]
@@ -194,6 +194,7 @@ module Mysql2BinlogStream
 
         case header[:event_type]
         when :rotate_event
+          #TODO: remove rotate event??? externalize fix cross-check?
           #puts [:ROTATE, :PIVOT]
           #TODO: chart metric
           #unless ignore_rotate
@@ -220,9 +221,6 @@ module Mysql2BinlogStream
     # file, and the format of events which will appear in this file. This also
     # provides the version of the MySQL server which generated this file.
     def process_fde(fde)
-      #puts "DOING FDE"
-      #NOTE: chart metric
-
       if (version = fde[:binlog_version]) != 4
         raise UnsupportedVersionException.new("Binlog version #{version} is not supported")
       end

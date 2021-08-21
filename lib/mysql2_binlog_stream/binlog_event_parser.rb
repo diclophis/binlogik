@@ -278,16 +278,15 @@ module Mysql2BinlogStream
       status_length = parser.read_uint16
       end_position = reader.position + status_length
       while reader.position < end_position
-
         status_type_id = parser.read_uint8
         status_type = QUERY_EVENT_STATUS_TYPES[status_type_id]
-        #puts [status_type_id, status_type, reader.position, end_position].inspect
+
+        #TODO: audit this case statement for known binlog file format differences
         status[status_type] = case status_type
         when :flags2
           parser.read_uint_bitmap_by_size_and_name(4, QUERY_EVENT_FLAGS2)
         when :sql_mode
           parser.read_uint64
-          #parser.read_uint8
         when :catalog_deprecated
           parser.read_lpstringz
         when :auto_increment
@@ -321,13 +320,11 @@ module Mysql2BinlogStream
         when :microseconds
           parser.read_uint24
         when :commit_ts
-          #parser.read_uint64
         when :commit_ts2
         when :explicit_defaults_for_timestamp
           parser.read_uint8
         else
-          #TODO: check status code 11 ????
-          #NOTE: ????
+          #TODO: check status code ????
           raise "Unknown status type #{status_type_id}"
         end
       end
@@ -336,9 +333,9 @@ module Mysql2BinlogStream
       # Raise a more specific exception here instead of the generic
       # OverReadException from the entire event.
 
-      #TODO?????
+      #TODO: ?????
       #TODO: FULL CODE AUDIT
-      #puts [:last, reader.position, end_position].inspect
+      #TODO: ?????
       if reader.position > end_position
         raise OverReadException.new("Read past end of Query event status field")
       end
@@ -401,8 +398,6 @@ module Mysql2BinlogStream
     # representing various fields based on the column type of the column
     # being processed.
     def _table_map_event_column_metadata_read(column_type)
-      #puts "CREATING event_column_metadata_read #{column_type}"
-
       case column_type
       when :float, :double
         { :size => parser.read_uint8 }
@@ -483,8 +478,8 @@ module Mysql2BinlogStream
       columns_nullable = parser.read_bit_array(columns)
 
       #TODO: chart metrics in prometheus
-      #puts [og_col, columns_metadata, map_entry].inspect
-      #puts "SHOULD KNOW SIZE OF ALL BITS BY NOW"
+      #TODO: "SHOULD KNOW SIZE OF ALL BITS BY NOW"
+      #TODO: super-fast skip-un-interesting event parsing
 
       # Remap overloaded types before we piece together the entire event.
       columns.times do |c|
@@ -513,8 +508,7 @@ module Mysql2BinlogStream
     # in Table_metadata_log_event::write_data_header
     # and Table_metadata_log_event::write_data_body
     def table_metadata_event(header)
-      #puts "THIS HAS COMMENT SUPPORT????"
-      #TODO: chart metric
+      #TODO: chart metric, instrumentation
 
       fields = {}
       table_id = parser.read_uint48
@@ -548,8 +542,6 @@ module Mysql2BinlogStream
       start_position = reader.position
       columns_null = parser.read_bit_array(fields[:table][:columns].size)
       fields[:table][:columns].each_with_index do |column, column_index|
-        ###!!! WTF
-        #puts "READING column bits now #{column_index} #{column}: used=#{columns_used[column_index]}, null=#{columns_null[column_index]}"
         #TODO: chart metric
 
         if !columns_used[column_index]
@@ -557,8 +549,7 @@ module Mysql2BinlogStream
         elsif columns_null[column_index]
           row_image << { column_index => nil }
         else
-          #puts [column[:type], column[:metadata]].inspect
-          #puts ["!!!!! ", column].inspect
+          #TODO: this bit was updated, re-unit-test
 
           value = parser.read_mysql_type(column[:type], column[:metadata])
           row_image << {
@@ -567,18 +558,13 @@ module Mysql2BinlogStream
         end
       end
 
-      #comment = parser.read_lpstringz
-      ##comment = parser.read_varstring
-      #puts comment.inspect
-
       end_position = reader.position
 
       x = {
         :image => row_image,
         :size => end_position-start_position
       }
-      #puts [:IMAGEWTF, x].inspect
-      #TODO: chart metric
+      #TODO: debug breakpoint here, unit test module
       x
     end
     private :_generic_rows_event_row_image
@@ -600,13 +586,11 @@ module Mysql2BinlogStream
     # is rather incomplete right now due missing support for many MySQL types,
     # but can parse some basic events.
     def _generic_rows_event_row_images(header, fields, columns_used)
-      #puts ["GATHERING ROWS BITBIT", columns_used].inspect
       #TODO: chart metric
 
       row_images = []
       end_position = reader.position + reader.remaining(header)
       while reader.position < end_position
-        #puts header[:event_type]
         #TODO: chart metric
 
         row_image = {}
@@ -620,8 +604,9 @@ module Mysql2BinlogStream
           row_image[:after]  = _generic_rows_event_row_image(header, fields, columns_used[:after])
           row_image[:diff] = diff_row_images(row_image[:before][:image], row_image[:after][:image])
         else
-          puts "#{header[:event_type]} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111"
-          #TODO: error case??????? or warning debug log????
+          #TODO: ???
+          #TODO: ??? error case??????? or warning debug log????
+          #TODO: ???
         end
         row_images << row_image
       end
@@ -671,9 +656,7 @@ module Mysql2BinlogStream
       when :write_rows_event_v1, :write_rows_event_v2
         columns_used[:after]  = parser.read_bit_array(columns)
       when :delete_rows_event_v1, :delete_rows_event_v2
-        #puts [:GOT_HERE].inspect
         columns_used[:before] = parser.read_bit_array(columns)
-        #puts [:GOT_AFTER].inspect
       when :update_rows_event_v1, :update_rows_event_v2
         columns_used[:before] = parser.read_bit_array(columns)
         columns_used[:after]  = parser.read_bit_array(columns)
@@ -753,7 +736,7 @@ module Mysql2BinlogStream
           type: lts_type,
           last_committed: lts_last_committed,
           sequence_number: lts_sequence_number,
-        },
+        }
       }
     end
   end
