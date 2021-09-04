@@ -22,14 +22,14 @@ end
 
 Rack::Server.send(:prepend, WebrickOverrideOptions)
 
-public_urls = 
-  ["/favicon.ico", "/index.html", "/index.js", "/fonts.css", "/vanilla.css"]
-
-use(
-  Rack::Static, {
-    :urls => public_urls,
-    :root => 'public'
-  }
-)
+#public_urls = 
+#  ["/favicon.ico", "/index.html", "/index.js", "/fonts.css", "/vanilla.css"]
+#
+#use(
+#  Rack::Static, {
+#    :urls => public_urls,
+#    :root => 'public'
+#  }
+#)
 
 @app = run(Mysql2BinlogStream::App)
