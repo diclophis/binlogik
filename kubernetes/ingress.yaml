@@ -1,0 +1,15 @@
+#---
+#apiVersion: extensions/v1beta1
+#kind: Ingress
+#metadata:
+#  annotations:
+#    ingress.class: wkndr
+#  name: binlogik-vhost
+#spec:
+#  rules:
+#  - host: binlogik.bardin.haus
+#    http:
+#      paths:
+#      - backend:
+#          serviceName: binlogik
+#          servicePort: 9292

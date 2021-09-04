@@ -6,13 +6,13 @@ metadata:
     run: binlogik
   name: binlogik
 spec:
-  hostNetwork: true
+  #hostNetwork: true
   containers:
   - args:
     - "bundle"
     - "exec"
     - "binlogik"
-    - "--follow"
+    - "--debug-follow"
     stdin: false
     stdinOnce: false
     tty: false
@@ -26,13 +26,17 @@ spec:
     - mountPath: /home/app/tmp
       name: tmpdir
     resources:
+      requests:
+        cpu: 10m
+        memory: 100m
       limits:
         memory: 5G
+        cpu: 500m
   - args:
     - "bundle"
     - "exec"
     - "binlogik"
-    - "--workload"
+    - "--debug-workload"
     stdin: false
     stdinOnce: false
     tty: false
@@ -45,45 +49,45 @@ spec:
     volumeMounts:
     - mountPath: /home/app/tmp
       name: tmpdir
-  - args:
-    - bundle
-    - exec
-    - rackup
-    - config.ru
-    stdin: false
-    stdinOnce: false
-    tty: false
-    image: binlogik:latest
-    imagePullPolicy: IfNotPresent
-    ports:
-    - containerPort: 9292
-      name: metrics
-      hostPort: 9292
-    livenessProbe:
-      exec:
-        command:
-        - "/bin/true"
-      initialDelaySeconds: 1
-      periodSeconds: 10
-      timeoutSeconds: 5
-      successThreshold: 1
-      failureThreshold: 3
-    readinessProbe:
-      exec:
-        command:
-        - "/bin/true"
-      initialDelaySeconds: 1
-      periodSeconds: 10
-      timeoutSeconds: 1
-      successThreshold: 1
-      failureThreshold: 3
-    name: metrics
-    resources: {}
-    terminationMessagePath: /dev/termination-log
-    terminationMessagePolicy: File
-    volumeMounts:
-    - mountPath: /home/app/tmp
-      name: tmpdir
+  #- args:
+  #  - bundle
+  #  - exec
+  #  - rackup
+  #  - config.ru
+  #  stdin: false
+  #  stdinOnce: false
+  #  tty: false
+  #  image: binlogik:latest
+  #  imagePullPolicy: IfNotPresent
+  #  ports:
+  #  - containerPort: 9292
+  #    name: metrics
+  #    #hostPort: 9292
+  #  livenessProbe:
+  #    exec:
+  #      command:
+  #      - "/bin/true"
+  #    initialDelaySeconds: 1
+  #    periodSeconds: 10
+  #    timeoutSeconds: 5
+  #    successThreshold: 1
+  #    failureThreshold: 3
+  #  readinessProbe:
+  #    exec:
+  #      command:
+  #      - "/bin/true"
+  #    initialDelaySeconds: 1
+  #    periodSeconds: 10
+  #    timeoutSeconds: 1
+  #    successThreshold: 1
+  #    failureThreshold: 3
+  #  name: metrics
+  #  resources: {}
+  #  terminationMessagePath: /dev/termination-log
+  #  terminationMessagePolicy: File
+  #  volumeMounts:
+  #  - mountPath: /home/app/tmp
+  #    name: tmpdir
   restartPolicy: Never
   securityContext: {}
   terminationGracePeriodSeconds: 1

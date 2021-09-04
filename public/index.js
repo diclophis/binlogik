@@ -213,7 +213,8 @@ var redrawRender = function() {
 redrawRender();
 */
 
-import uPlot from './uPlot.esm.js';
+//import uPlot from './uPlot.esm.js';
+
 
 function wheelZoomPlugin(opts) {
   let factor = opts.factor || 0.75;

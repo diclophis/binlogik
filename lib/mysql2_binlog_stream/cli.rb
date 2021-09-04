@@ -6,9 +6,9 @@ module Mysql2BinlogStream
   class Cli
     def self.main(argv)
       case argv[0]
-        when "--follow"
+        when "--debug-follow"
           self.follow
-        when "--workload"
+        when "--debug-workload"
           self.workload
       else
         raise "unknown action"

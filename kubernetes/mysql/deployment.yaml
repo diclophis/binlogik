@@ -14,7 +14,7 @@ spec:
       labels:
         app: mysql
     spec:
-      hostNetwork: true
+      #hostNetwork: true
       initContainers:
       - name: "remove-lost-found"
         image: "busybox:1.33.1"
@@ -50,7 +50,7 @@ spec:
         ports:
         - name: mysql
           containerPort: 3306
-          hostPort: 3306
+          #hostPort: 3306
         livenessProbe:
           exec:
             command:
