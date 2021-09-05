@@ -23,7 +23,6 @@ jobs:
 
     - name: bootstrap
       run: |
-        cd /home/app/${{ github.repository }}
         polly generate
         exit 2
 
