@@ -23,6 +23,9 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
+          limits:
+            cpu: 10m
+            memory: 10Mi
         command:  ["rm", "-fr", "/var/lib/mysql/lost+found"]
       containers:
       - name: mysql
@@ -32,6 +35,9 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
+          limits:
+            cpu: 50m
+            memory: 1000Mi
         env:
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:

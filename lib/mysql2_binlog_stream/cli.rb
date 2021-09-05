@@ -27,7 +27,8 @@ module Mysql2BinlogStream
          "reconnect" => true,
          "pool" => 1,
          "timeout" => 20000,
-         "checkout_timeout" => 20
+         "checkout_timeout" => 20,
+         "connect_timeout" => 5
       }
 
       mysql_client = Mysql2::Client.new(database_config)
@@ -52,7 +53,8 @@ module Mysql2BinlogStream
          "reconnect" => true,
          "pool" => 1,
          "timeout" => 20000,
-         "checkout_timeout" => 20
+         "checkout_timeout" => 20,
+         "connect_timeout" => 5
       }
 
       mysql_client = Mysql2::Client.new(database_config)

@@ -7,6 +7,7 @@ metadata:
   name: binlogik
 spec:
   #hostNetwork: true
+  restartPolicy: OnFailure
   containers:
   - args:
     - "bundle"
@@ -31,7 +32,7 @@ spec:
         memory: 100m
       limits:
         memory: 5G
-        cpu: 500m
+        cpu: 50m
   - args:
     - "bundle"
     - "exec"
@@ -43,7 +44,13 @@ spec:
     image: binlogik:latest
     imagePullPolicy: IfNotPresent
     name: workload
-    resources: {}
+    resources:
+      requests:
+        cpu: 10m
+        memory: 100m
+      limits:
+        memory: 5G
+        cpu: 50m
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
     volumeMounts:

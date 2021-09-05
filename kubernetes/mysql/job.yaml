@@ -1,0 +1,53 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-mysql
+  labels:
+    app: init-mysql
+spec:
+  template:
+    metadata:
+      labels:
+        app: init-mysql
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init-mysql
+        image: "mysql:5.7.33"
+        imagePullPolicy: "IfNotPresent"
+        command:
+        - sh
+        - -ex
+        - -c
+        - "sleep 10 && cat /etc/mysql/initial-grants.sql | mysql --connect-timeout=10 --port=3366 -h${MYSQL_SERVICE_HOST} -uroot -p${MYSQL_ROOT_PASSWORD}"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql
+              key: mysql-root-password
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql
+              key: mysql-password
+        - name: MYSQL_USER
+          value: "binlogik"
+        - name: MYSQL_DATABASE
+          value: "test"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/mysql/conf.d/mysql-custom.cnf
+          subPath: mysql-custom.cnf
+        - name: config
+          mountPath: /etc/mysql/initial-grants.sql
+          subPath: grants.sql
+      volumes:
+      - name: config
+        configMap:
+          name: mysql-config
