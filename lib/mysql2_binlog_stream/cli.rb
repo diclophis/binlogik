@@ -69,6 +69,8 @@ module Mysql2BinlogStream
       while true
         binary_logs = mysql_client.query("SHOW BINARY LOGS").to_a
 
+        original_binary_logs_count = binary_logs.length
+
         binary_logs.reject! { |blr|
           blr["Log_name"].nil? || blr["File_size"].nil?
         }
@@ -87,10 +89,17 @@ module Mysql2BinlogStream
           #puts [:read_over_bytes_serially_slowly].inspect
           #puts [log_name, binlog_files_positions[log_name], file_size].inspect
         }
+        current_binary_log_index = 0
 
         binary_logs.each { |blr|
           log_name = blr["Log_name"]
           file_size = blr["File_size"]
+
+          current_binary_log_index += 1
+
+          if file_size < 40960
+            next
+          end
 
           if binlog_files_positions[log_name] == file_size
             next
@@ -110,6 +119,8 @@ module Mysql2BinlogStream
             binlog_files_positions[log_name].to_s,
             #"--to-last-log",
             #"--binlog-row-event-max-size", "512",
+            #"--stop-datetime",
+            #(Time.now + 30).strftime('%Y-%m-%d %H:%M:%S'),
             "--set-charset", "utf8mb4",
             "--read-from-remote-server",
             "--result-file", "tmp/binlogs/",
@@ -144,6 +155,8 @@ module Mysql2BinlogStream
 
           start_time = Time.now
 
+          last_row = nil
+
           binlog.each_event { |event|
             last_known_position_for_binlog = binlog_files_positions[log_name]
 
@@ -157,9 +170,7 @@ module Mysql2BinlogStream
                   event2 = event[:event]
                   if query = event2[:query]
                     if xax_json = stream.strstr_method(query)
-                      if (global_counter % 100) == 0
-                        puts [global_counter, Time.now.to_f - JSON.load(xax_json)["foo"]].inspect
-                      end
+                      last_row = [global_counter, Time.now.to_f - JSON.load(xax_json)["foo"]]
                     end
                   end
                 #when :write_rows_event_v2, :update_rows_event_v2
@@ -195,8 +206,7 @@ module Mysql2BinlogStream
             end
           }
 
-          #puts [:OK, binlog_files_positions, binlog_files_handled].inspect
-          #sleep 0.1
+          puts [:OK, "%06.2f" % ((current_binary_log_index.to_f / original_binary_logs_count.to_f) * 100.0), binary_logs.first["Log_name"], log_name, binary_logs.last["Log_name"], last_row].inspect
         }
       end
     end

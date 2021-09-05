@@ -1,24 +1,23 @@
 #!/usr/bin/env ruby
 
 @bootstrap = image {
-  stage "bootstrap", "ubuntu:focal-20210713"
+  stage "bootstrap", "ubuntu:focal-20210827"
 
   command("USER") {
     "root"
   }
 
   env "DEBIAN_FRONTEND" => "noninteractive",
-      "LC_ALL" => "C.UTF-8",
-      "LANG" => "en_US",
-      "LANGUAGE" => "en_US",
       "ACCEPT_EULA" => "y"
 
-  apt %w{locales locales-all}
-
-  run %q{locale-gen --purge en_US}
-  run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
-  run %q{locale-gen $LANGUAGE}
-  run %q{dpkg-reconfigure locales}
+  #    "LC_ALL" => "C.UTF-8",
+  #    "LANG" => "en_US",
+  #    "LANGUAGE" => "en_US",
+  #apt %w{locales locales-all}
+  #run %q{locale-gen --purge en_US}
+  #run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
+  #run %q{locale-gen $LANGUAGE}
+  #run %q{dpkg-reconfigure locales}
 
   apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
 
@@ -31,6 +30,7 @@
 
 @deploy = image {
   stage "deploy", @bootstrap.stage
+
   command("USER") {
     "app"
   }
@@ -60,3 +60,5 @@
     "--chown=app . /home/app"
   }
 }
+
+prototype1

@@ -6,6 +6,7 @@ metadata:
   labels:
     app: init-mysql
 spec:
+  backoffLimit: 10
   template:
     metadata:
       labels:
@@ -20,7 +21,7 @@ spec:
         - sh
         - -ex
         - -c
-        - "sleep 10 && cat /etc/mysql/initial-grants.sql | mysql --connect-timeout=10 --port=3366 -h${MYSQL_SERVICE_HOST} -uroot -p${MYSQL_ROOT_PASSWORD}"
+        - "cat /etc/mysql/initial-grants.sql | mysql --connect-timeout=30 --port=3366 -h${MYSQL_SERVICE_HOST} -uroot -p${MYSQL_ROOT_PASSWORD}"
         resources:
           requests:
             cpu: 10m

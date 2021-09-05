@@ -36,7 +36,7 @@ spec:
             cpu: 10m
             memory: 10Mi
           limits:
-            cpu: 50m
+            cpu: 200m
             memory: 1000Mi
         env:
         - name: MYSQL_ROOT_PASSWORD
@@ -63,22 +63,22 @@ spec:
             - sh
             - -c
             - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
-          initialDelaySeconds: 15
-          periodSeconds: 7
-          timeoutSeconds: 3
+          initialDelaySeconds: 10
+          periodSeconds: 1
+          timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 5
+          failureThreshold: 100
         readinessProbe:
           exec:
             command:
             - sh
             - -c
             - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
-          initialDelaySeconds: 3
-          periodSeconds: 9
-          timeoutSeconds: 3
+          initialDelaySeconds: 10
+          periodSeconds: 1
+          timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 5
+          failureThreshold: 100
         volumeMounts:
         - name: config
           mountPath: /etc/mysql/conf.d/mysql-custom.cnf
