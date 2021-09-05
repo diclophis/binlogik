@@ -19,10 +19,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        path: /home/app/${{ github.repository }}
 
     - name: bootstrap
       run: |
+        cd /home/app/${{ github.repository }}
         polly generate
+        exit 2
 
     - name: Log in to the Container registry
       uses: docker/login-action@v1
