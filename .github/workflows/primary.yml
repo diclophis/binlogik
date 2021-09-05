@@ -16,11 +16,10 @@ jobs:
 
     container:
       image: ghcr.io/unhookd/polly@sha256:9a740dfaa402120168943e4dd06278fd28219db44615a247b2a1dbe4f017372a
+      options: "--user 0"
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        path: /home/app/${{ github.repository }}
 
     - name: bootstrap
       run: |
