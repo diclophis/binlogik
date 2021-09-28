@@ -1,3 +1,20 @@
 #!/usr/bin/env ruby
 
 prototype1
+
+@plain_workflow = plan {
+  job(
+    "bootstrap",
+    [{"image"=>"binlogik:latest","user"=>"app"}],
+    [{"run"=>{"name"=>"bootstrap","command"=>"
+      pwd
+      ls -la
+      echo sleeping 15
+      sleep 15
+    "}}],{},"/home/app"
+  )
+}
+
+@gitch_pipeline = continuous {
+  test @plain_workflow
+}
