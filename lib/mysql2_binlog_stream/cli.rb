@@ -6,61 +6,44 @@ module Mysql2BinlogStream
   class Cli
     def self.main(argv)
       case argv[0]
-        when "--debug-follow"
-          self.follow
-        when "--debug-workload"
-          self.workload
+        when /--debug-follow=/
+          self.follow(argv[0].split("=")[1])
+        when /--debug-workload=/
+          self.workload(argv[0].split("=")[1])
+
       else
         raise "unknown action"
       end
     end
 
-    def self.workload
+    def self.workload(xax_tag)
       database_config = {
-         "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
-         "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
-         "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
-         "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
-         "encoding"=> "utf8mb4",
-         "collation"=> "utf8mb4_unicode_ci",
-         "strict" => true,
-         "reconnect" => true,
-         "pool" => 1,
-         "timeout" => 20000,
-         "checkout_timeout" => 20,
-         "connect_timeout" => 5
+        "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
+        "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
+        "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
+        "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
+        "encoding"=> "utf8mb4",
+        "collation"=> "utf8mb4_unicode_ci",
+        "strict" => true,
+        "reconnect" => true,
+        "pool" => 1,
+        "timeout" => 20000,
+        "checkout_timeout" => 20,
+        "connect_timeout" => 5
       }
 
       mysql_client = Mysql2::Client.new(database_config)
 
       loop do
-        mysql_client.query('/*XAX ' + JSON.dump({"foo" => Time.now.to_f}) + ' XAX*/ INSERT INTO test.test VALUES()')
+        mysql_client.query("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES()")
       end
     end
 
-    def self.follow
+    def self.follow(xax_tag)
       global_counter = 0
       event_type_counter = {}
 
-      database_config = {
-         "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
-         "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
-         "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
-         "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
-         "encoding"=> "utf8mb4",
-         "collation"=> "utf8mb4_unicode_ci",
-         "strict" => true,
-         "reconnect" => true,
-         "pool" => 1,
-         "timeout" => 20000,
-         "checkout_timeout" => 20,
-         "connect_timeout" => 5
-      }
-
-      mysql_client = Mysql2::Client.new(database_config)
-
-      binlog_files_handled = {}
-      binlog_files_positions = {}
+      stream = Mysql2BinlogStream::Stream.new(xax_tag)
 
       #TODO: better TMPDIR usage, factory ?????
       system("mkdir", "-p", "tmp/binlogs")
