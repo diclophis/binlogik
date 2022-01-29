@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.executables   = ["binlogik"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "rack"
-  spec.add_dependency "mysql2" #, "~> 0.5"
+  spec.add_dependency "rack", "~> 2"
+  spec.add_dependency "mysql2", "~> 0.5"
   spec.add_dependency "superconfig2"
 end
