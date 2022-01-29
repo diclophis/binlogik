@@ -540,9 +540,13 @@ module Mysql2BinlogStream
     def _generic_rows_event_row_image(header, fields, columns_used)
       row_image = []
       start_position = reader.position
-      columns_null = parser.read_bit_array(fields[:table][:columns].size)
-      fields[:table][:columns].each_with_index do |column, column_index|
-        #TODO: chart metric
+
+      table = fields[:table]
+      columns = table[:columns]
+
+      columns_null = parser.read_bit_array(columns.size)
+      columns.each_with_index do |column, column_index|
+        #puts "column #{column_index} #{column}: used=#{columns_used[column_index]}, null=#{columns_null[column_index]}"
 
         if !columns_used[column_index]
           row_image << nil
@@ -602,7 +606,9 @@ module Mysql2BinlogStream
         when :update_rows_event_v1, :update_rows_event_v2
           row_image[:before] = _generic_rows_event_row_image(header, fields, columns_used[:before])
           row_image[:after]  = _generic_rows_event_row_image(header, fields, columns_used[:after])
-          row_image[:diff] = diff_row_images(row_image[:before][:image], row_image[:after][:image])
+          if row_image[:before] && row_image[:after]
+            row_image[:diff] = diff_row_images(row_image[:before][:image], row_image[:after][:image])
+          end
         else
           #TODO: ???
           #TODO: ??? error case??????? or warning debug log????
@@ -614,8 +620,8 @@ module Mysql2BinlogStream
       # We may have read too much, especially if any of the fields in the row
       # image were misunderstood. Raise a more specific exception here instead
       # of the generic OverReadException from the entire event.
-      if reader.position > end_position
-        raise OverReadException.new("Read past end of row image")
+      if reader.position > (end_position + 4)
+        raise OverReadException.new("Read past end of row image #{reader.position} #{end_position}")
       end
 
       row_images
@@ -660,6 +666,8 @@ module Mysql2BinlogStream
       when :update_rows_event_v1, :update_rows_event_v2
         columns_used[:before] = parser.read_bit_array(columns)
         columns_used[:after]  = parser.read_bit_array(columns)
+      else
+        raise "unknown"
       end
       fields[:row_image] = _generic_rows_event_row_images(header, fields, columns_used)
       fields

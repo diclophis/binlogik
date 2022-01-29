@@ -36,6 +36,8 @@ module Mysql2BinlogStream
   autoload 'BinlogEventParser', 'mysql2_binlog_stream/binlog_event_parser'
   autoload 'Binlog', 'mysql2_binlog_stream/binlog'
   autoload 'Observability', 'mysql2_binlog_stream/observability'
+  autoload 'Cursor', 'mysql2_binlog_stream/cursor'
+  autoload 'Fetcher', 'mysql2_binlog_stream/fetcher'
 
   #TODO: maybe build this at CD/CI time???
   #NOTE: this should be updated
