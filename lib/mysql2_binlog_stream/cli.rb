@@ -57,6 +57,9 @@ module Mysql2BinlogStream
           reader = Mysql2BinlogStream::BinlogReader.new(fetched.log_name)
 
           binlog = Mysql2BinlogStream::Binlog.new(reader)
+
+####
+
           binlog.checksum = :crc32 #TODO: detect crc???
           binlog.ignore_rotate = true #TODO: rotate I think is super-critical!!!
 
@@ -98,7 +101,7 @@ module Mysql2BinlogStream
 
           last_row = nil
 
-          last_xid = {}
+          last_xid = nil
 
           binlog.each_event { |event|
             global_counter += 1
@@ -111,37 +114,84 @@ module Mysql2BinlogStream
             case event[:type]
               when :xid_event
                 if last_xid
-                  puts "----"
-                  puts last_xid.inspect
-                  puts
+                  puts "flushing ---- #{last_xid[:xid]}"
+                  puts "changes count: #{last_xid[:changes].length} query count: #{last_xid[:xax_query].length}"
+                  puts "tables changed: #{last_xid[:changes].collect { |change| change[:table][:table] }.inspect}"
+                  puts "queries: #{last_xid[:xax_query].collect { |xax_query| xax_query[0..32] + '...' }.inspect}"
+                  puts "request_details: #{last_xid[:xax_json].collect { |xax_json| xax_json["request_uuid"] }.uniq}"
+                  puts "gtid: #{last_xid[:gtid]}"
+
+                  #puts
+                  #puts last_xid.inspect
+                  #puts
                 end
 
                 last_xid = event[:event]
+                puts
+                puts "opening ... xid:#{last_xid[:xid]} @ #{event[:filename]}:#{event[:position]}"
+
                 last_xid[:timestamp] = header_timestamp
+                last_xid[:binlog_position] = "#{event[:filename]}:#{event[:position]}"
+                last_xid[:changes] = []
+                last_xid[:xax_json] = []
+                last_xid[:xax_query] = []
+                last_xid[:anon_query] = []
+                last_xid[:rows_update_binlog_position] = []
+                last_xid[:rows_query_binlog_position] = []
 
               when :write_rows_event_v2, :update_rows_event_v2 #, :xid_event, :gtid_log_event
-                last_xid[:changes] = event[:event]
+                if last_xid
+                  #puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
+
+                  last_xid[:changes] << event[:event]
+                  last_xid[:rows_update_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                end
 
               when :rows_query_log_event
                 event2 = event[:event]
+                xax_json = nil
+                query_stripped = nil
+                anon_query = nil
+
                 if query = event2[:query]
                   if xax_bits = stream.strstr_method(query)
-                    xax_json, query_stripped = *xax_bits
-                    last_xid[:xax_json] = JSON.load(xax_json)
-                    last_xid[:xax_query] = query_stripped
+                    xax_json_raw, query_stripped = *xax_bits
+                    xax_json = JSON.load(xax_json_raw)
+                    xax_query = query_stripped
                   else
-                    last_xid[:anon_query] = query
+                    anon_query = query
                   end
                 end
+
+                if last_xid && xax_json && query_stripped
+                  #puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
+
+                  last_xid[:rows_query_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                  last_xid[:xax_json] << xax_json
+                  last_xid[:xax_query] << query_stripped
+                elsif last_xid && anon_query
+                  puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
+                  last_xid[:rows_query_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                  last_xid[:anon_query] << anon_query
+                else
+                  puts "partial SKIPPING ... #{xax_bits.inspect}"
+                end
+
+              when :anonymous_gtid_log_event
+                #puts event[:event][:payload].each_byte.map { |b| b.to_s(16) }.join.inspect
+
+                if last_xid
+                  last_xid[:gtid] = event[:event][:payload].each_byte.map { |b| b.to_s(16) }.join
+                end
+
+              when :format_description_event, :previous_gtids_log_event, :query_event, :table_map_event
+                #NOTE: safe to ignore
+
             else
               #TODO
-            end
+              puts "ignoring... #{event[:type]}"
 
-            #if (rand < 0.01)
-            #  Mysql2BinlogStream::Observability.emit_tsdb("stat.lag", (Time.now - Time.at(header_timestamp)))
-            #  Mysql2BinlogStream::Observability.emit_tsdb("counter.global", global_counter)
-            #  Mysql2BinlogStream::Observability.emit_tsdb("counter.#{event[:type]}", event_type_counter[event[:type]])
-            #end
+            end
           }
         }
 
