@@ -20,7 +20,6 @@ module Mysql2BinlogStream
     end
 
     def open_file(filename)
-      @dirname  = File.dirname(filename)
       @filename = File.basename(filename)
       @binlog   = StringIO.new(IO.binread(filename))
       @binlog.binmode
@@ -28,12 +27,13 @@ module Mysql2BinlogStream
       verify_magic
     end
 
+    #TODO ?????????????
     #TODO: is rotate required???
     #TODO: is rotate required to ensure consistent stream
     #def rotate(filename, position)
     #  retries = 10
     #  begin
-    #    open_file(@dirname + "/" + filename)
+    #    open_file(filename)
     #    seek(position)
     #  rescue Errno::ENOENT
     #    # A rotate event will be seen in the previous log file before the

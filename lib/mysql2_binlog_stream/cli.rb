@@ -6,208 +6,196 @@ module Mysql2BinlogStream
   class Cli
     def self.main(argv)
       case argv[0]
-        when "--debug-follow"
-          self.follow
-        when "--debug-workload"
-          self.workload
+        when /--debug-follow=/
+          self.follow(argv[0].split("=")[1])
+        when /--debug-workload=/
+          self.workload(argv[0].split("=")[1])
+
       else
         raise "unknown action"
       end
     end
 
-    def self.workload
+    def self.workload(xax_tag)
       database_config = {
-         "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
-         "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
-         "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
-         "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
-         "encoding"=> "utf8mb4",
-         "collation"=> "utf8mb4_unicode_ci",
-         "strict" => true,
-         "reconnect" => true,
-         "pool" => 1,
-         "timeout" => 20000,
-         "checkout_timeout" => 20,
-         "connect_timeout" => 5
+        "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
+        "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
+        "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
+        "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
+        "encoding"=> "utf8mb4",
+        "collation"=> "utf8mb4_unicode_ci",
+        "strict" => true,
+        "reconnect" => true,
+        "pool" => 1,
+        "timeout" => 20000,
+        "checkout_timeout" => 20,
+        "connect_timeout" => 5
       }
 
       mysql_client = Mysql2::Client.new(database_config)
 
       loop do
-        mysql_client.query('/*XAX ' + JSON.dump({"foo" => Time.now.to_f}) + ' XAX*/ INSERT INTO test.test VALUES()')
+        mysql_client.query("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES()")
       end
     end
 
-    def self.follow
+    def self.follow(xax_tag)
       global_counter = 0
       event_type_counter = {}
 
-      database_config = {
-         "username" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
-         "password" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS,
-         "host" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
-         "port" => Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
-         "encoding"=> "utf8mb4",
-         "collation"=> "utf8mb4_unicode_ci",
-         "strict" => true,
-         "reconnect" => true,
-         "pool" => 1,
-         "timeout" => 20000,
-         "checkout_timeout" => 20,
-         "connect_timeout" => 5
-      }
+      stream = Mysql2BinlogStream::Stream.new(xax_tag)
 
-      mysql_client = Mysql2::Client.new(database_config)
-
-      binlog_files_handled = {}
-      binlog_files_positions = {}
-
-      #TODO: better TMPDIR usage, factory ?????
-      system("mkdir", "-p", "tmp/binlogs")
-      system("mkdir", "-p", "tmp/metrics")
+      cursor = Mysql2BinlogStream::Cursor.new
 
       while true
-        binary_logs = mysql_client.query("SHOW BINARY LOGS").to_a
+        cursor.rewind!
 
-        original_binary_logs_count = binary_logs.length
+        cursor.each { |blr|
+          fetched = Mysql2BinlogStream::Fetcher.new(blr)
+          puts fetched.log_name
 
-        binary_logs.reject! { |blr|
-          blr["Log_name"].nil? || blr["File_size"].nil?
-        }
-
-        binary_logs.each { |blr|
-          log_name = blr["Log_name"]
-          _, binlog_index = log_name.split(".")
-          file_size = blr["File_size"]
-
-          binlog_files_handled[log_name] = file_size
-          binlog_files_positions[log_name] ||= 4
-
-          #TODO: chart metric
-          #binlog_disk_size = File.stat(tmp_bin_log).size
-          #Mysql2BinlogStream::Observability.emit_tsdb("matrix.binlog.disk_size", file_size.to_i, binlog_index.to_i)
-          #puts [:read_over_bytes_serially_slowly].inspect
-          #puts [log_name, binlog_files_positions[log_name], file_size].inspect
-        }
-        current_binary_log_index = 0
-
-        binary_logs.each { |blr|
-          log_name = blr["Log_name"]
-          file_size = blr["File_size"]
-
-          current_binary_log_index += 1
-
-          if file_size < 40960
-            next
-          end
-
-          if binlog_files_positions[log_name] == file_size
-            next
-          end
-
-          _, binlog_index = log_name.split(".")
-
-          cmd = [
-            "/usr/bin/mysqlbinlog",
-            "--host", Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_HOST,
-            "--port", Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PORT,
-            "--user", Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_USER,
-            "--password=#{Mysql2BinlogStream::SUPERCONFIG.MYSQL_SERVICE_PASS}",
-            "--connection-server-id", "1001",
-            "--raw",
-            "--start-position",
-            binlog_files_positions[log_name].to_s,
-            #"--to-last-log",
-            #"--binlog-row-event-max-size", "512",
-            #"--stop-datetime",
-            #(Time.now + 30).strftime('%Y-%m-%d %H:%M:%S'),
-            "--set-charset", "utf8mb4",
-            "--read-from-remote-server",
-            "--result-file", "tmp/binlogs/",
-            log_name
-          ]
-
-          o, e, s = Open3.capture3(*cmd)
-          finished_ok = s.success?
-
-          unless finished_ok
-            #TODO: better error handling
-
-            puts [o, e, s].inspect
-            raise "error fetching binlog #{log_name}"
-          end
-
-          tmp_bin_log = "tmp/binlogs/#{log_name}"
-
-          stream = Mysql2BinlogStream::Stream.new
-
-          reader = Mysql2BinlogStream::BinlogReader.new(tmp_bin_log)
-          reader.seek(binlog_files_positions[log_name])
+          reader = Mysql2BinlogStream::BinlogReader.new(fetched.log_name)
 
           binlog = Mysql2BinlogStream::Binlog.new(reader)
+
+####
 
           binlog.checksum = :crc32 #TODO: detect crc???
           binlog.ignore_rotate = true #TODO: rotate I think is super-critical!!!
 
-          #:write_rows_event_v2, :update_rows_event_v2
-          #:rows_query_log_event
-          binlog.filter_event_types = [:rows_query_log_event]
+          binlog.filter_event_types = [
+            :unknown_event            ,
+            :query_event              ,
+            :stop_event               ,
+            :rotate_event             ,
+            :intvar_event             ,
+            :append_block_event       ,
+            :delete_file_event        ,
+            :rand_event               ,
+            :user_var_event           ,
+            :format_description_event ,
+            :xid_event                ,
+            :begin_load_query_event   ,
+            :execute_load_query_event ,
+            :table_map_event          ,
+            :write_rows_event_v1      ,
+            :update_rows_event_v1     ,
+            :delete_rows_event_v1     ,
+            :incident_event           ,
+            :heartbeat_log_event      ,
+            :ignorable_log_event      ,
+            :rows_query_log_event     ,
+            :write_rows_event_v2      ,
+            :update_rows_event_v2     ,
+            :delete_rows_event_v2     ,
+            :gtid_log_event           ,
+            :anonymous_gtid_log_event ,
+            :previous_gtids_log_event ,
+            :transaction_context_event,
+            :view_change_event        ,
+            :xa_prepare_log_event     ,
+            :table_metadata_event
+          ]
 
           start_time = Time.now
 
           last_row = nil
 
+          last_xid = nil
+
           binlog.each_event { |event|
-            last_known_position_for_binlog = binlog_files_positions[log_name]
+            global_counter += 1
+            event_type_counter[event[:type]] ||= 0
+            event_type_counter[event[:type]] += 1
+            header_timestamp = event[:header][:timestamp]
 
-            if event[:position] > last_known_position_for_binlog
-              global_counter += 1 
-              event_type_counter[event[:type]] ||= 0
-              event_type_counter[event[:type]] += 1
-              header_timestamp = event[:header][:timestamp]
-              case event[:type]
-                when :rows_query_log_event
-                  event2 = event[:event]
-                  if query = event2[:query]
-                    if xax_json = stream.strstr_method(query)
-                      last_row = [global_counter, Time.now.to_f - JSON.load(xax_json)["foo"]]
-                    end
+            #$stderr.write("\r" + Time.at(header_timestamp).to_s)
+
+            case event[:type]
+              when :xid_event
+                if last_xid
+                  puts "flushing ---- #{last_xid[:xid]}"
+                  puts "changes count: #{last_xid[:changes].length} query count: #{last_xid[:xax_query].length}"
+                  puts "tables changed: #{last_xid[:changes].collect { |change| change[:table][:table] }.inspect}"
+                  puts "queries: #{last_xid[:xax_query].collect { |xax_query| xax_query[0..32] + '...' }.inspect}"
+                  puts "request_details: #{last_xid[:xax_json].collect { |xax_json| xax_json["request_uuid"] }.uniq}"
+                  puts "gtid: #{last_xid[:gtid]}"
+
+                  #puts
+                  #puts last_xid.inspect
+                  #puts
+                end
+
+                last_xid = event[:event]
+                puts
+                puts "opening ... xid:#{last_xid[:xid]} @ #{event[:filename]}:#{event[:position]}"
+
+                last_xid[:timestamp] = header_timestamp
+                last_xid[:binlog_position] = "#{event[:filename]}:#{event[:position]}"
+                last_xid[:changes] = []
+                last_xid[:xax_json] = []
+                last_xid[:xax_query] = []
+                last_xid[:anon_query] = []
+                last_xid[:rows_update_binlog_position] = []
+                last_xid[:rows_query_binlog_position] = []
+
+              when :write_rows_event_v2, :update_rows_event_v2 #, :xid_event, :gtid_log_event
+                if last_xid
+                  #puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
+
+                  last_xid[:changes] << event[:event]
+                  last_xid[:rows_update_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                end
+
+              when :rows_query_log_event
+                event2 = event[:event]
+                xax_json = nil
+                query_stripped = nil
+                anon_query = nil
+
+                if query = event2[:query]
+                  if xax_bits = stream.strstr_method(query)
+                    xax_json_raw, query_stripped = *xax_bits
+                    xax_json = JSON.load(xax_json_raw)
+                    xax_query = query_stripped
+                  else
+                    anon_query = query
                   end
-                #when :write_rows_event_v2, :update_rows_event_v2
-                #  slugified_table_name = [event[:event][:table][:db], event[:event][:table][:table]].join("_").downcase
-                #  rows_changed = event[:event][:row_image].length
-                #  if event2 = event[:event]
-                #    if table = event2[:table]
-                #      if row_images = event2[:row_image]
-                #        i = 0
-                #        row_images.each { |row_image|
-                #          before = row_image[:before]
-                #          after = row_image[:after]
-                #          #TODO: puts [i+=1, rows_changed, slugified_table_name, (before ? before[:image] : nil), (after ? after[:image] : nil)].inspect
-                #        }
-                #      end
-                #    end
-                #  end
-              else
-                #TODO
-              end
+                end
 
-              binlog_files_positions[log_name] = event[:position]
+                if last_xid && xax_json && query_stripped
+                  #puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
 
-              if event[:type] == :rotate_event
-                binlog_files_positions[log_name] = event[:header][:next_position]
-              end
+                  last_xid[:rows_query_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                  last_xid[:xax_json] << xax_json
+                  last_xid[:xax_query] << query_stripped
+                elsif last_xid && anon_query
+                  puts "stacking... xid:#{last_xid[:xid]} #{event[:type]} @ #{event[:filename]}:#{event[:position]}"
+                  last_xid[:rows_query_binlog_position] << "#{event[:filename]}:#{event[:position]}"
+                  last_xid[:anon_query] << anon_query
+                else
+                  puts "partial SKIPPING ... #{xax_bits.inspect}"
+                end
 
-              #if (rand < 0.01)
-              #  Mysql2BinlogStream::Observability.emit_tsdb("stat.lag", (Time.now - Time.at(header_timestamp)))
-              #  Mysql2BinlogStream::Observability.emit_tsdb("counter.global", global_counter)
-              #  Mysql2BinlogStream::Observability.emit_tsdb("counter.#{event[:type]}", event_type_counter[event[:type]])
-              #end
+              when :anonymous_gtid_log_event
+                #puts event[:event][:payload].each_byte.map { |b| b.to_s(16) }.join.inspect
+
+                if last_xid
+                  last_xid[:gtid] = event[:event][:payload].each_byte.map { |b| b.to_s(16) }.join
+                end
+
+              when :format_description_event, :previous_gtids_log_event, :query_event, :table_map_event
+                #NOTE: safe to ignore
+
+            else
+              #TODO
+              puts "ignoring... #{event[:type]}"
+
             end
           }
-
-          puts [:OK, "%06.2f" % ((current_binary_log_index.to_f / original_binary_logs_count.to_f) * 100.0), binary_logs.first["Log_name"], log_name, binary_logs.last["Log_name"], last_row].inspect
         }
+
+        break
       end
     end
   end
