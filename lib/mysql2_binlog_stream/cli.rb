@@ -12,7 +12,7 @@ module Mysql2BinlogStream
           self.workload(argv[0].split("=")[1])
 
       else
-        raise "unknown action"
+        raise "unknown action #{argv.inspect}"
       end
     end
 
@@ -35,7 +35,9 @@ module Mysql2BinlogStream
       mysql_client = Mysql2::Client.new(database_config)
 
       loop do
-        mysql_client.query("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES()")
+        r = mysql_client.query("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES()")
+        puts r.inspect
+        sleep 1
       end
     end
 
@@ -48,9 +50,13 @@ module Mysql2BinlogStream
       cursor = Mysql2BinlogStream::Cursor.new
 
       while true
+        puts "loop"
+
         cursor.rewind!
 
         cursor.each { |blr|
+          puts "each cursor step"
+
           fetched = Mysql2BinlogStream::Fetcher.new(blr)
           puts fetched.log_name
 
@@ -195,7 +201,8 @@ module Mysql2BinlogStream
           }
         }
 
-        break
+        #break
+        sleep 1
       end
     end
   end
