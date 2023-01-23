@@ -475,7 +475,7 @@ module Mysql2BinlogStream
         read_varstring
       when :varchar, :string
         prefix_size = (metadata[:max_length] > 255) ? 2 : 1
-        read_lpstring(prefix_size)
+        read_lpstring(prefix_size).each_codepoint.to_a
       when :blob, :geometry, :json
         read_lpstring(metadata[:length_size]).each_codepoint.to_a
       when :timestamp

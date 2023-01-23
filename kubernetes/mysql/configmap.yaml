@@ -11,7 +11,7 @@ data:
     binlog_rows_query_log_events=true
     expire_logs_days=1
     log-bin=/var/lib/mysql/mysql
-    max_binlog_size=524288
+    max_binlog_size=1048576
     gtid_mode=ON
     enforce_gtid_consistency=ON 
     init_connect=SET collation_connection = utf8mb4_unicode_ci

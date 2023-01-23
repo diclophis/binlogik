@@ -31,6 +31,8 @@ module Mysql2BinlogStream
       }
       mysql_client = Mysql2::Client.new(database_config)
       @binary_logs = mysql_client.query("SHOW BINARY LOGS").to_a
+      mysql_client.close
+      mysql_client = nil
       original_binary_logs_count = @binary_logs.length
       @binary_logs.reject! { |blr|
         blr["Log_name"].nil? || blr["File_size"].nil?
