@@ -1,4 +1,4 @@
-#
+# encoding: UTF-8
 
 #TODO: this whole file needs to get audited twice
 #TODO: unit test this module
@@ -477,7 +477,7 @@ module Mysql2BinlogStream
         prefix_size = (metadata[:max_length] > 255) ? 2 : 1
         read_lpstring(prefix_size)
       when :blob, :geometry, :json
-        read_lpstring(metadata[:length_size])
+        read_lpstring(metadata[:length_size]).each_codepoint.to_a
       when :timestamp
         read_uint32
       when :timestamp2

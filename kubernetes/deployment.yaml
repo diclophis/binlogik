@@ -43,7 +43,7 @@ spec:
             memory: 100m
           limits:
             memory: 5G
-            cpu: 200m
+            cpu: 1000m
       - args:
         - "bundle"
         - "exec"

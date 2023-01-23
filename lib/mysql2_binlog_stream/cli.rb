@@ -36,11 +36,7 @@ module Mysql2BinlogStream
 
       loop do
         statement = mysql_client.prepare("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES(NULL, FROM_UNIXTIME(?), ?, ?)")
-        result1 = statement.execute(Time.now.to_f, SecureRandom.hex, Random.urandom(1024))
-
-        #r2 = mysql_client.query("SELECT COUNT(*) FROM test.test")
-        #puts r2.inspect
-        #sleep 0.5
+        result1 = statement.execute(Time.now.to_f, SecureRandom.hex, Random.urandom(32536 * 2))
       end
     end
 
@@ -143,20 +139,22 @@ module Mysql2BinlogStream
                     if scene_xids[last_xid[:gtid]].nil?
                       demo_counter += 1
 
-                      parsed_xid_json = JSON.dump(last_xid)
-                      scene_xids[last_xid[:gtid]] = parsed_xid_json
-                      if ((demo_counter % 1000) == 0)
-                        puts parsed_xid_json
+                      #parsed_xid_json = JSON.dump(last_xid)
+
+                      scene_xids[last_xid[:gtid]] = last_xid #parsed_xid_json
+
+                      if ((demo_counter % 100) == 0)
+                        puts [
+                          fetched.log_name,
+                          demo_counter,
+                          last_xid[:changes][0][:row_image][0][:after][:image][1][1],
+                          last_xid[:changes][0][:row_image][0][:after][:image][2][2].pack('U*')
+                        ].inspect
                       end
                     end
-
-                    #puts
-                    #puts last_xid.inspect
-                    #puts
                   end
 
                   last_xid = event[:event]
-                  #puts
                   #puts "opening ... xid:#{last_xid[:xid]} @ #{event[:filename]}:#{event[:position]}"
 
                   last_xid[:timestamp] = header_timestamp
@@ -226,8 +224,8 @@ module Mysql2BinlogStream
  
               else
                 #TODO TODO
-                puts "ignoring... #{event[:type]}"
-                puts event.inspect
+                #puts "ignoring... #{event[:type]}"
+                #puts event.inspect
 
               end
             }

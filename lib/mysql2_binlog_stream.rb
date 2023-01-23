@@ -1,4 +1,6 @@
-#
+# encoding: UTF-8
+
+Encoding.default_external = Encoding::UTF_8
 
 ###################################################################
 #NOTE: include any stdlib first

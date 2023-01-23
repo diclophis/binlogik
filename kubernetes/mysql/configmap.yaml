@@ -12,7 +12,7 @@ data:
     expire_logs_days=1
     log-bin=/var/lib/mysql/mysql
     ignore-db-dir=lost+found
-    max_binlog_size=65536
+    max_binlog_size=524288
     gtid_mode=ON
     enforce_gtid_consistency=ON 
     init_connect=SET collation_connection = utf8mb4_unicode_ci
