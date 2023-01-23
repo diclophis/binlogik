@@ -7,7 +7,6 @@ module Mysql2BinlogStream
       @XAX_PREFIX_LENGTH = @XAX_PREFIX.length
       @XAX_SUFFIX = "#{xax_tag}*/"
       @XAX_SUFFIX_LENGTH = @XAX_SUFFIX.length
-      puts self.inspect
     end
 
     def strstr_method(inp)

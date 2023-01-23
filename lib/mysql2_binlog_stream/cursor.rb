@@ -7,9 +7,12 @@ module Mysql2BinlogStream
 
     def_delegators :@binary_logs, :each
 
+    def initialize
+      @filesizes_per_blr = {}
+    end
+
     def rewind!
       #@binary_logs = Mysql2BinlogStream::SUPERCONFIG.MYSQL_BINARY_LOGS
-
       #@binary_logs = @binary_logs.split(":")
 
       database_config = {
@@ -31,6 +34,17 @@ module Mysql2BinlogStream
       original_binary_logs_count = @binary_logs.length
       @binary_logs.reject! { |blr|
         blr["Log_name"].nil? || blr["File_size"].nil?
+      }
+      @binary_logs.reject! { |blr|
+        if @filesizes_per_blr[blr["Log_name"]].nil?
+          @filesizes_per_blr[blr["Log_name"]] = blr["File_size"]
+          false
+        elsif blr["File_size"] > @filesizes_per_blr[blr["Log_name"]]
+          @filesizes_per_blr[blr["Log_name"]] = blr["File_size"]
+          false
+        else
+          true
+        end
       }
       @binary_logs.collect! { |blr|
         blr["Log_name"]

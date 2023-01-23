@@ -27,7 +27,7 @@ module Mysql2BinlogStream
       end
 
       if global_time - @last_flush > 2.5
-        puts :flush
+        #puts :flush
 
         @last_flush = Time.now.to_f
 

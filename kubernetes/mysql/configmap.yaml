@@ -9,11 +9,22 @@ data:
     server_id=1
     binlog_format=ROW
     binlog_rows_query_log_events=true
-    max_binlog_size=40960
+    expire_logs_days=1
     log-bin=/var/lib/mysql/mysql
     ignore-db-dir=lost+found
+    max_binlog_size=65536
+    gtid_mode=ON
+    enforce_gtid_consistency=ON 
+    init_connect=SET collation_connection = utf8mb4_unicode_ci
+    character-set-server = utf8mb4
+    collation-server = utf8mb4_unicode_ci
+    #binlog_cache_size=16384
+    #max_binlog_cache_size=32768
+    #binlog_stmt_cache_size=16384
+    #max_binlog_stmt_cache_size=32768
   grants.sql: |-
-    CREATE TABLE test.test (id INT AUTO_INCREMENT PRIMARY KEY NOT NULL);
+    CREATE TABLE test.test (id INT AUTO_INCREMENT PRIMARY KEY NOT NULL, created_at DATETIME NOT NULL, description TEXT NOT NULL, extra BLOB NOT NULL);
     GRANT REPLICATION CLIENT ON *.* TO 'binlogik'@'%';
     GRANT REPLICATION SLAVE ON *.* TO 'binlogik'@'%';
     GRANT SELECT ON *.* TO 'binlogik'@'%';
+    PURGE BINARY LOGS BEFORE (DATE(NOW()) + INTERVAL 0 SECOND);
