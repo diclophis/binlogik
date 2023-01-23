@@ -15,7 +15,8 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: init-mysql
-        image: "mysql:5.7.33"
+        #image: "mysql:5.7.33"
+        image: "mysql:8.0.32"
         imagePullPolicy: "IfNotPresent"
         command:
         - sh

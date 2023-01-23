@@ -89,24 +89,29 @@ module Mysql2BinlogStream
   # a query_event.
   #
   # Defined in sql/log_event.h line ~316
+  # https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Query__event.html
   QUERY_EVENT_STATUS_TYPES = [
-    :flags2,                    #  0 (Q_FLAGS2_CODE)
-    :sql_mode,                  #  1 (Q_SQL_MODE_CODE)
-    :catalog_deprecated,        #  2 (Q_CATALOG_CODE)
-    :auto_increment,            #  3 (Q_AUTO_INCREMENT)
-    :charset,                   #  4 (Q_CHARSET_CODE)
-    :time_zone,                 #  5 (Q_TIME_ZONE_CODE)
-    :catalog,                   #  6 (Q_CATALOG_NZ_CODE)
-    :lc_time_names,             #  7 (Q_LC_TIME_NAMES_CODE)
-    :charset_database,          #  8 (Q_CHARSET_DATABASE_CODE)
-    :table_map_for_update,      #  9 (Q_TABLE_MAP_FOR_UPDATE_CODE)
-    :master_data_written,       # 10 (Q_MASTER_DATA_WRITTEN_CODE)
-    :invoker,                   # 11 (Q_INVOKER)
-    :updated_db_names,          # 12 (Q_UPDATED_DB_NAMES)
-    :microseconds,              # 13 (Q_MICROSECONDS)
-    :commit_ts,                 # 14 (Q_COMMIT_TS)
-    :commit_ts2,                # 15
-    :explicit_defaults_for_timestamp, # 16
+    :flags2,                                 #  0 (Q_FLAGS2_CODE)
+    :sql_mode,                               #  1 (Q_SQL_MODE_CODE)
+    :catalog_deprecated,                     #  2 (Q_CATALOG_CODE)
+    :auto_increment,                         #  3 (Q_AUTO_INCREMENT)
+    :charset,                                #  4 (Q_CHARSET_CODE)
+    :time_zone,                              #  5 (Q_TIME_ZONE_CODE)
+    :catalog,                                #  6 (Q_CATALOG_NZ_CODE)
+    :lc_time_names,                          #  7 (Q_LC_TIME_NAMES_CODE)
+    :charset_database,                       #  8 (Q_CHARSET_DATABASE_CODE)
+    :table_map_for_update,                   #  9 (Q_TABLE_MAP_FOR_UPDATE_CODE)
+    :master_data_written,                    # 10 (Q_MASTER_DATA_WRITTEN_CODE)
+    :invoker,                                # 11 (Q_INVOKER)
+    :updated_db_names,                       # 12 (Q_UPDATED_DB_NAMES)
+    :microseconds,                           # 13 (Q_MICROSECONDS)
+    :commit_ts,                              # 14 (Q_COMMIT_TS)
+    :commit_ts2,                             # 15 (Q_COMMIT_TS2)
+    :explicit_defaults_for_timestamp,        # 16 (Q_EXPLICIT_DEFAULTS_FOR_TIMESTAMP)
+    :ddl_logged_with_xid,                    # 17 (Q_DDL_LOGGED_WITH_XID)
+    :default_collation_for_utf8mb4,          # 18 (Q_DEFAULT_COLLATION_FOR_UTF8MB4)
+    :sql_require_primary_key,                # 19 (Q_SQL_REQUIRE_PRIMARY_KEY)
+    :default_table_encryption,               # 20 (Q_DEFAULT_TABLE_ENCRYPTION)
   ]
 
   QUERY_EVENT_OVER_MAX_DBS_IN_EVENT_MTS = 254
@@ -323,9 +328,17 @@ module Mysql2BinlogStream
         when :commit_ts2
         when :explicit_defaults_for_timestamp
           parser.read_uint8
+        when :ddl_logged_with_xid
+          parser.read_uint64
+        when :default_collation_for_utf8mb4
+          parser.read_uint16
+        when :sql_require_primary_key
+          parser.read_uint8
+        when :default_table_encryption
+          parser.read_uint8
         else
-          #TODO: check status code ????
-          raise "Unknown status type #{status_type_id}"
+          #TODO: check status code ???? TODO
+          raise "Unknown status type #{status_type} #{status_type_id}"
         end
       end
 
@@ -333,9 +346,11 @@ module Mysql2BinlogStream
       # Raise a more specific exception here instead of the generic
       # OverReadException from the entire event.
 
+      #TODO:
       #TODO: ?????
       #TODO: FULL CODE AUDIT
       #TODO: ?????
+      #TODO:
       if reader.position > end_position
         raise OverReadException.new("Read past end of Query event status field")
       end

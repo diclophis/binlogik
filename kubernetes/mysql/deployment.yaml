@@ -17,7 +17,8 @@ spec:
       #hostNetwork: true
       containers:
       - name: mysql
-        image: "mysql:5.7.33"
+        #image: "mysql:5.7.33"
+        image: "mysql:8.0.32"
         imagePullPolicy: "IfNotPresent"
         resources:
           requests:
