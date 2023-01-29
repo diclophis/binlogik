@@ -28,7 +28,8 @@ spec:
         stdin: false
         stdinOnce: false
         tty: false
-        image: binlogik:latest
+        #image: binlogik:latest
+        image: ghcr.io/diclophis/binlogik@sha256:a19c08c71ac5f1418102c3d99ede46dd88e2546e83d1080e36faaf48d1b7ed95
         imagePullPolicy: IfNotPresent
         name: follow
         resources: {}
@@ -52,7 +53,8 @@ spec:
         stdin: false
         stdinOnce: false
         tty: false
-        image: binlogik:latest
+        #image: binlogik:latest
+        image: ghcr.io/diclophis/binlogik@sha256:a19c08c71ac5f1418102c3d99ede46dd88e2546e83d1080e36faaf48d1b7ed95
         imagePullPolicy: IfNotPresent
         name: workload
         resources:
