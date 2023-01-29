@@ -1,3 +1,9 @@
+# [2.3.0] - 2023-01-29 - Jon Bardin
+
+add rudimentary support for binlog_row_metadata=FULL
+
+#######
+
 # [2.2.0] - 2022-01-29 - Jon Bardin
 
 Add better support for update/insert row event parsing, simplify local debug case
