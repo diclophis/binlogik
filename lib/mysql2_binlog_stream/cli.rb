@@ -33,44 +33,41 @@ module Mysql2BinlogStream
       }
 
       mysql_client = Mysql2::Client.new(database_config)
-
+      
       loop do
-        statement = mysql_client.prepare("/*#{xax_tag} " + JSON.dump({"foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES(NULL, FROM_UNIXTIME(?), ?, ?)")
-        result1 = statement.execute(Time.now.to_f, SecureRandom.hex, Random.urandom(32536.0 * 2.0 * rand))
+        statement1 = mysql_client.prepare("/*#{xax_tag} " + JSON.dump({"bit" => "ins", "foo" => Time.now.to_f}) + " #{xax_tag}*/ INSERT INTO test.test VALUES(NULL, FROM_UNIXTIME(?), ?, ?)")
+        statement1.execute(Time.now.to_f, "foo-#{SecureRandom.hex[0..5]}-bar", Random.urandom(32536.0 * 2.0 * rand))
+
+        id_stat = mysql_client.prepare("SELECT t1.id FROM test.test AS t1 JOIN (SELECT id FROM test.test ORDER BY RAND() LIMIT 10) as t2 ON t1.id=t2.id LIMIT 1")
+        id_result = id_stat.execute
+        id_a = id_result.to_a
+
+        unless id_a.empty?
+          statement2 = mysql_client.prepare("/*#{xax_tag} " + JSON.dump({"bit" => "upd", "foo" => Time.now.to_f}) + " #{xax_tag}*/ UPDATE test.test SET description = ?, extra = ? WHERE test.id= ?")
+          result2 = statement2.execute("foo-#{SecureRandom.hex[0..5]}-bar", Random.urandom(32536.0 * 2.0 * rand), id_a[0]["id"])
+        end
       end
     end
 
     def self.follow(xax_tag)
-      scene_xids = {}
+      seen_xids = {}
       demo_counter = 0
-
+      loop_counter = 0
       global_counter = 0
       event_type_counter = {}
+      skip_counter = 0
 
       stream = Mysql2BinlogStream::Stream.new(xax_tag)
-
       cursor = Mysql2BinlogStream::Cursor.new
 
-      #scene_this_blr = {}
-
       while true
-        #puts "loop"
+        loop_counter += 1
 
         cursor.rewind!
 
         cursor.each { |blr|
-          #puts "each cursor step"
-
-          #has_scene_this_blr = scene_this_blr[blr]
-
-          #if has_scene_this_blr
-          #else
             fetched = Mysql2BinlogStream::Fetcher.new(blr)
-            #puts "tmp/binlogs/" + fetched.log_name
-            #puts system("ls -l tmp/binlogs")
-
             reader = Mysql2BinlogStream::BinlogReader.new("tmp/binlogs/" + fetched.log_name)
-
             binlog = Mysql2BinlogStream::Binlog.new(reader)
 
             binlog.checksum = :crc32 #TODO: detect crc???
@@ -113,46 +110,78 @@ module Mysql2BinlogStream
             start_time = Time.now
 
             last_row = nil
-
             last_xid = nil
 
             binlog.each_event { |event|
               global_counter += 1
+              skip_counter += 1
+
               event_type_counter[event[:type]] ||= 0
               event_type_counter[event[:type]] += 1
               header_timestamp = event[:header][:timestamp]
 
-              #$stderr.write("\r" + Time.at(header_timestamp).to_s)
-
               case event[:type]
                 when :xid_event
                   if last_xid
-
-                    #puts "flushing ---- #{last_xid[:xid]}"
-                    #puts "changes count: #{last_xid[:changes].length} query count: #{last_xid[:xax_query].length}"
-                    #puts "tables changed: #{last_xid[:changes].collect { |change| change[:table][:table] }.inspect}"
-                    #puts "queries: #{last_xid[:xax_query].collect { |xax_query| xax_query[0..32] + '...' }.inspect}"
-                    #puts "request_details: #{last_xid[:xax_json].collect { |xax_json| xax_json["request_uuid"] }.uniq}"
-                    #puts "gtid: #{last_xid[:gtid]}"
-                    #parsed_xid_json_hash = Digest::SHA256.hexdigest(parsed_xid_json)
-
-                    if scene_xids[last_xid[:gtid]].nil?
+                    if seen_xids[last_xid[:gtid]].nil?
                       demo_counter += 1
+                      seen_xids[last_xid[:gtid]] = true
 
-                      parsed_xid_json = JSON.dump(last_xid)
-                      scene_xids[last_xid[:gtid]] = parsed_xid_json
+
+                      before = last_xid[:changes][0][:row_image][0][:before]
+                      after = last_xid[:changes][0][:row_image][0][:after]
+
+
+                        after_map = {}
+
+                        last_xid[:map_entry][:columns].collect.with_index { |column, i|
+                          b = begin
+                                             case column[:type]
+                                               when :blob
+                                                 after[:image][i][i].pack('U*')
+                                             else
+                                               after[:image][i][i]
+                                             end
+                                           end
+                          after_map[column[:column_name]] = b
+                        }
+
+                      json_diff = nil
+                      
+                      if before && after
+                        before_map = {}
+                        
+                        last_xid[:map_entry][:columns].each.with_index { |column, i|
+                          b = begin
+                                             case column[:type]
+                                               when :blob
+                                                 before[:image][i][i].pack('U*')
+                                             else
+                                               before[:image][i][i]
+                                             end
+                                           end
+                          before_map[column[:column_name]] = b
+                        }
+
+                        json_diff = JsonDiff.diff(before_map, after_map)
+                      else
+                        json_diff = JsonDiff.diff(nil, after_map)
+                      end
+
+                      xxx = JSON.dump({:xax_id => [last_xid[:map_entry][:db], last_xid[:map_entry][:table], after_map["id"]].join("/"), :xax_json => last_xid[:xax_json], :xax_diff => json_diff})
+
+                      yyy = JSON.parse(xxx)
 
                       if ((demo_counter % 100) == 0)
-                        #puts last_xid.inspect
-                        #puts parsed_xid_json
-                        puts [
-                          fetched.log_name,
-                          demo_counter,
-                          last_xid[:changes][0][:row_image][0][:after][:image][1][1],
-                          last_xid[:changes][0][:row_image][0][:after][:image][2][2].pack('U*'),
-                          last_xid[:changes][0][:row_image][0][:after][:image][3][3].length
-                        ].inspect
+                        seconds_behind = Time.now.to_f - (yyy["xax_json"][0]["foo"].to_f)
+                        puts [:lag, seconds_behind, :loop, loop_counter, :skip, skip_counter, :uniq, demo_counter, fetched.log_name].inspect
                       end
+
+                      skip_counter = 0
+
+                      #  TODO: xax_query
+                      #  last_xid[:changes][0][:row_image][0][:after][:image][2][2].pack('U*'),
+                      #  last_xid[:changes][0][:row_image][0][:after][:image][3][3].length,
                     end
                   end
 
@@ -178,7 +207,6 @@ module Mysql2BinlogStream
 
                 when :rows_query_log_event
                   event2 = event[:event]
-                  #puts event.inspect
                   xax_json = nil
                   query_stripped = nil
                   anon_query = nil
@@ -215,15 +243,20 @@ module Mysql2BinlogStream
                     last_xid[:gtid] = event[:event][:payload].each_byte.map { |b| b.to_s(16) }.join
                   end
 
-                when :format_description_event, :previous_gtids_log_event, :query_event, :table_map_event
-                  #NOTE: safe to ignore
-                  #puts event.inspect
+                when :table_map_event
+                  if last_xid
+                    last_xid[:map_entry] = event[:event][:map_entry]
+                  end
+
+                #when :format_description_event, :previous_gtids_log_event, :query_event
+                #  #NOTE: safe to ignore
+                #  #puts event.inspect
 
                 when :gtid_log_event
                   if last_xid
                     last_xid[:gtid] = event[:event][:gtid]
                   end
- 
+
               else
                 #TODO TODO
                 #puts "ignoring... #{event[:type]}"
@@ -231,27 +264,8 @@ module Mysql2BinlogStream
 
               end
             }
-        
-          #  scene_this_blr[blr] = true
-          #end
         }
-
-        #break
-        #sleep 1
       end
     end
   end
 end
-
-#stat.binlog_disk_size
-#counter.global
-#counter.anonymous_gtid_log_event
-#counter.format_description_event
-#counter.previous_gtids_log_event
-#counter.query_event
-#counter.rotate_event
-#counter.rows_query_log_event
-#counter.stop_event
-#counter.table_map_event
-#counter.write_rows_event_v2
-#counter.xid_event

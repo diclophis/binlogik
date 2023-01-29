@@ -22,4 +22,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rack", "~> 2"
   spec.add_dependency "mysql2", "~> 0.5"
   spec.add_dependency "superconfig2"
+  spec.add_dependency "json-diff"
 end

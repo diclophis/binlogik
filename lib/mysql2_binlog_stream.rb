@@ -23,6 +23,7 @@ require "rubygems"
 require "bundler/setup"
 require 'mysql2'
 require 'superconfig2'
+require 'json-diff'
 # ...
 
 

@@ -6,6 +6,28 @@ its default mode emits mysql binlog query and row events to stdout, and runs as 
 
 # related work / research links
 
+https://dev.mysql.com/blog-archive/more-metadata-is-written-into-binary-log/
+
+https://github.com/shyiko/mysql-binlog-connector-java/issues/24#issuecomment-446369124
+
+https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Table__map__event.html
+
+https://dev.mysql.com/doc/dev/mysql-server/latest/classbinary__log_1_1Table__map__event.html#Table_table_map_event_optional_metadata
+
+https://github.com/mysql/mysql-server/commit/c019294ca8fece7af3bca6e6190e4e1efafa22af
+
+https://github.com/mysql/mysql-server/blob/8.0/libbinlogevents/include/rows_event.h#L383
+
+https://github.com/mysql/mysql-server/blob/8.0/libbinlogevents/include/rows_event.h#L50
+
+https://dev.mysql.com/doc/refman/8.0/en/mysqlbinlog.html
+
+https://dev.mysql.com/doc/refman/8.0/en/mysql-command-options.html
+
+https://github.com/mysql/mysql-server/commit/c019294ca8fece7af3bca6e6190e4e1efafa22af
+
+https://dev.mysql.com/doc/dev/mysql-server/latest/rows__event_8h_source.html
+
 https://dev.mysql.com/doc/internals/en/query-event.html
 
 https://dev.mysql.com/doc/internals/en/binlog-event.html

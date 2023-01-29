@@ -416,6 +416,9 @@ module Mysql2BinlogStream
       case column_type
       when :float, :double
         { :size => parser.read_uint8 }
+      when :tiny
+      when :long
+      when :longlong
       when :varchar
         { :max_length => parser.read_uint16 }
       when :bit
@@ -451,7 +454,7 @@ module Mysql2BinlogStream
         }
       else
       #NOTE: TODO: raise error????????????
-      #  raise "wtf #{column_type}"
+        raise "wtf #{column_type}"
       end
     end
     private :_table_map_event_column_metadata_read
@@ -471,12 +474,15 @@ module Mysql2BinlogStream
     # in Table_map_log_event::write_data_header
     # and Table_map_log_event::write_data_body
     def table_map_event(header)
+      end_position = reader.position + reader.remaining(header)
+
       fields = {}
       fields[:table_id] = parser.read_uint48
       fields[:flags] = parser.read_uint_bitmap_by_size_and_name(2, TABLE_MAP_EVENT_FLAGS)
       map_entry = @table_map[fields[:table_id]] = {} #TODO: remove memo-ization???
 
       # https://github.com/krowinski/php-mysql-replication/blob/41073226e6c35c793499ba928ae02d81f1a47b8a/src/MySQLReplication/Event/RowEvent/RowEvent.php#L315-L325
+      # https://github.com/mysql/mysql-server/blob/c019294ca8fece7af3bca6e6190e4e1efafa22af/libbinlogevents/src/rows_event.cpp#L127
       map_entry[:db] = parser.read_lpstringz
       map_entry[:table] = parser.read_lpstringz
 
@@ -491,6 +497,34 @@ module Mysql2BinlogStream
       columns_metadata = _table_map_event_column_metadata(columns_type)
 
       columns_nullable = parser.read_bit_array(columns)
+
+      column_names = []
+
+      if reader.position > end_position
+        puts "no extra metadata"
+      else
+        m_optional_metadata_len = end_position - reader.position
+
+        while reader.position < (end_position - 32)
+          type = parser.read_uint8
+
+          case type
+            when 1,2,3,5,6,7,8,9
+              _x = parser.read_varstring
+              #TODO: !!!!!
+              #TODO: !!!!! this needs to be supported
+              #TODO: https://github.com/mysql/mysql-server/blob/8.0/libbinlogevents/include/rows_event.h#L383
+              #puts [type, :x, x].inspect
+            when 4
+              nnnd_p = reader.position + parser.read_varint
+              while reader.position < nnnd_p
+                x = parser.read_lpstring
+                column_names << x
+                #puts [type, :y, x].inspect
+              end
+          end
+        end
+      end
 
       #TODO: chart metrics in prometheus
       #TODO: "SHOULD KNOW SIZE OF ALL BITS BY NOW"
@@ -509,6 +543,7 @@ module Mysql2BinlogStream
           :type     => columns_type[c],
           :nullable => columns_nullable[c],
           :metadata => columns_metadata[c],
+          :column_name => column_names[c]
         }
       end
 
@@ -561,15 +596,13 @@ module Mysql2BinlogStream
 
       columns_null = parser.read_bit_array(columns.size)
       columns.each_with_index do |column, column_index|
-        #puts "column #{column_index} #{column}: used=#{columns_used[column_index]}, null=#{columns_null[column_index]}"
-
         if !columns_used[column_index]
           row_image << nil
         elsif columns_null[column_index]
           row_image << { column_index => nil }
         else
           #TODO: this bit was updated, re-unit-test
-
+          #TODO: unit-testing!
           value = parser.read_mysql_type(column[:type], column[:metadata])
           row_image << {
             column_index => value,
@@ -625,6 +658,7 @@ module Mysql2BinlogStream
             row_image[:diff] = diff_row_images(row_image[:before][:image], row_image[:after][:image])
           end
         else
+          #puts [:foo, header].inspect
           #TODO: ???
           #TODO: ??? error case??????? or warning debug log????
           #TODO: ???
