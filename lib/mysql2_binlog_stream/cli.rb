@@ -170,6 +170,9 @@ module Mysql2BinlogStream
 
                       xxx = JSON.dump({:xax_id => [last_xid[:map_entry][:db], last_xid[:map_entry][:table], after_map["id"]].join("/"), :xax_json => last_xid[:xax_json], :xax_diff => json_diff})
 
+                      puts xxx
+                      puts
+                      
                       yyy = JSON.parse(xxx)
 
                       if ((demo_counter % 100) == 0)
