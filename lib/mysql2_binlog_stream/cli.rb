@@ -168,7 +168,7 @@ module Mysql2BinlogStream
                         json_diff = JsonDiff.diff(nil, after_map)
                       end
 
-                      xxx = JSON.dump({:xax_id => [last_xid[:map_entry][:db], last_xid[:map_entry][:table], after_map["id"]].join("/"), :xax_json => last_xid[:xax_json], :xax_diff => json_diff})
+                      xxx = JSON.dump({:xax_id => [last_xid[:map_entry][:db], last_xid[:map_entry][:table], after_map["id"]].join("/"), :xax_json => last_xid[:xax_json]}) # :xax_diff => json_diff
 
                       puts xxx
                       puts
